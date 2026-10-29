@@ -4,6 +4,7 @@ import json
 
 import requests
 
+from app.cache import Cache
 from app.config import Settings
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
@@ -21,13 +22,16 @@ class QlooBudgetExceeded(QlooError):
 
 
 class QlooClient:
-    def __init__(self, settings: Settings, max_calls: int = 40, timeout: float = 15, retries: int = 1):
+    def __init__(self, settings: Settings, max_calls: int = 40, timeout: float = 15, retries: int = 1,
+                 cache: Cache | None = None, read_cache: bool = True):
         self._base = settings.qloo_base_url
         self._session = requests.Session()
         self._session.headers["X-Api-Key"] = settings.qloo_api_key
         self._timeout = timeout
         self._retries = retries
-        self._cache: dict[tuple, dict] = {}
+        self._shared = cache if cache is not None else Cache()
+        self._run = Cache()  # this run's own responses: always read, so a run never pays twice
+        self._read_shared = read_cache  # False for "Run live": skip earlier runs' responses, still store
         self.max_calls = max_calls
         self.calls = 0  # HTTP attempts, retries included; cache hits are free
         self.last_cached = False
@@ -47,9 +51,12 @@ class QlooClient:
 
     def _request(self, method: str, path: str, params: dict | None = None, body: dict | None = None) -> dict:
         key = (method, path, json.dumps(params or body, sort_keys=True))
-        self.last_cached = key in self._cache
-        if self.last_cached:
-            return self._cache[key]
+        hit, cached = self._run.get(key)
+        if not hit and self._read_shared:
+            hit, cached = self._shared.get(key)
+        self.last_cached = hit
+        if hit:
+            return cached
 
         status, detail = None, ""
         for _ in range(1 + self._retries):
@@ -67,8 +74,10 @@ class QlooClient:
                 status, detail = None, f"connection error: {str(exc)[:200]}"
                 continue
             if resp.ok:
-                self._cache[key] = resp.json()
-                return self._cache[key]
+                data = resp.json()
+                self._run.set(key, data)
+                self._shared.set(key, data)
+                return data
             status, detail = resp.status_code, resp.text[:300]
             if status not in RETRYABLE_STATUS:
                 break

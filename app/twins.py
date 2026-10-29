@@ -26,6 +26,7 @@ class TwinResult(BaseModel):
     path: Literal["", "post_weighted", "get_equal_weights"] = ""
     level: int = 0
     note: str = ""
+    request: dict = {}  # endpoint and key params of the call that produced `twins`
 
 
 def _common(city: str, level: int, tags: tuple[str, ...]) -> dict:
@@ -47,6 +48,16 @@ def post_body(origin_id: str, extras: list[str], city: str, level: int, tags: tu
 def get_params(origin_id: str, extras: list[str], city: str, level: int, tags: tuple[str, ...]) -> dict:
     return {**_common(city, level, tags), "signal.interests.entities": ",".join([origin_id] + extras),
             "feature.explainability": "true"}
+
+
+def request_summary(method: str, origin_id: str, extras: list[str], city: str, level: int,
+                    tags: tuple[str, ...]) -> dict:
+    weights = [ORIGIN_WEIGHT] + [EXTRA_WEIGHT] * len(extras) if method == "POST" else [1] * (1 + len(extras))
+    return {"endpoint": f"{method} /v2/insights", "filter.type": "urn:entity:place",
+            "filter.location.query": city, "filter.tags": list(tags),
+            "filter.price_level.min": level, "filter.price_level.max": level,
+            "signals": [{"id": i, "weight": w} for i, w in zip([origin_id] + extras, weights)],
+            "feature.explainability": True, "take": TAKE}
 
 
 def violations(twins: list[Twin], level: int, tags: tuple[str, ...]) -> list[str]:
@@ -71,7 +82,8 @@ def find(origin: Place, tier: int, city: str, extras: list[str], client: QlooCli
         twins = [Twin.from_qloo(e) for e in client.insights_post(post_body(origin.entity_id, extras, city, level, tags))]
         bad = violations(twins, level, tags)
         if not bad:
-            return TwinResult(status="ok", twins=twins, path="post_weighted", level=level)
+            return TwinResult(status="ok", twins=twins, path="post_weighted", level=level,
+                              request=request_summary("POST", origin.entity_id, extras, city, level, tags))
         reason = f"POST ignored a filter ({bad[0]})"
     except QlooBudgetExceeded:
         raise
@@ -84,4 +96,5 @@ def find(origin: Place, tier: int, city: str, extras: list[str], client: QlooCli
         bad_names = {b.split(":")[0] for b in bad}
         twins = [t for t in twins if t.name not in bad_names]
         reason += f"; GET also broke filters, dropped {len(bad)} in code"
-    return TwinResult(status="ok", twins=twins, path="get_equal_weights", level=level, note=reason)
+    return TwinResult(status="ok", twins=twins, path="get_equal_weights", level=level, note=reason,
+                      request=request_summary("GET", origin.entity_id, extras, city, level, tags))

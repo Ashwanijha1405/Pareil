@@ -115,15 +115,24 @@ def offered_actions(dropped: dict[str, int], one_down: int, state: "SignalState"
 
 
 class Agent:
-    def __init__(self, settings: Settings, llm: LLM | None = None, client: QlooClient | None = None):
+    def __init__(self, settings: Settings, llm: LLM | None = None, client: QlooClient | None = None,
+                 on_event=None):
         self.llm = llm or LLM(settings)
         self.client = client or QlooClient(settings, max_calls=MAX_QLOO_CALLS)
         self.trace: list[TraceEntry] = []
+        self._on_event = on_event  # called with each trace entry as it is logged (web: live SSE)
 
     # --- trace helpers ------------------------------------------------------------------
 
-    def _log(self, step: str, tool: str, status: str, target: str = "", ms: int = 0, detail: str = "") -> None:
-        self.trace.append(TraceEntry(step=step, tool=tool, target=target, status=status, ms=ms, detail=detail[:300]))
+    def _log(self, step: str, tool: str, status: str, target: str = "", ms: int = 0, detail: str = "",
+             meta: dict | None = None) -> None:
+        self._add(TraceEntry(step=step, tool=tool, target=target, status=status, ms=ms, detail=detail[:300],
+                             meta=meta or {}))
+
+    def _add(self, entry: TraceEntry) -> None:
+        self.trace.append(entry)
+        if self._on_event:
+            self._on_event(entry.model_dump())
 
     def _qloo(self, step: str, target: str, fn, *args, **kwargs):
         """Run a Qloo-backed call and trace failures. Budget errors propagate so run() can stop cleanly."""
@@ -148,7 +157,8 @@ class Agent:
             by_raw[t.merchant].append(t)
 
         cleaned, clean_trace = merchants.clean(list(by_raw), {r: ts[0].city for r, ts in by_raw.items()}, self.llm)
-        self.trace += clean_trace
+        for entry in clean_trace:
+            self._add(entry)
         food, skipped = merchants.split_food(cleaned)
         group = self._group(food, by_raw)
         self._log("clean", "code", "ok", detail=f"{len(cleaned)} raw -> {len(group)} food merchants, {len(skipped)} skipped")
@@ -173,7 +183,9 @@ class Agent:
                 needs_review.append(self._review(m, f"Qloo search failed: {exc}"))
                 continue
             self._log("resolve", "qloo.search", status if res.status == "resolved" else "needs_review", m.cm.name, ms,
-                      res.place.name if res.place else res.reason)
+                      res.place.name if res.place else res.reason,
+                      meta={"endpoint": "GET /search", "query": m.cm.name, "types": "urn:entity:place",
+                            "filter.location": resolve.CITY_POINTS.get(resolve.city_key(m.cm.city), ""), "take": 5})
             if res.status == "resolved":
                 resolved.append((m, res))
             else:
@@ -187,6 +199,7 @@ class Agent:
             + (f"; excluded (spends like a lower tier): {', '.join(names[e] for e in excluded)}" if excluded else ""))
         by_visits = sorted(resolved, key=lambda mr: (-mr[0].visits, -sum(mr[0].amounts), mr[0].cm.name))
         visited_ids = {r.place.entity_id for _, r in resolved}
+        self._names = names
 
         swaps, candidates, already_budget = [], [], []
         for m, res in resolved:  # already in total-spend order, which dedupe relies on
@@ -298,8 +311,10 @@ class Agent:
                 continue
             paths.append(f"{result.path}@{result.level}")
             found += result.twins
-            self._log("twins", f"qloo.insights[{result.path}]", status, m.cm.name, ms,
-                      f"{len(result.twins)} twins at price level {result.level}, {len(state.extras)} extra signals"
+            meta = {**result.request, "signals": [{**sig, "name": self._names.get(sig["id"], sig["id"])}
+                                                  for sig in result.request.get("signals", [])]}
+            self._log("twins", f"qloo.insights[{result.path}]", status, m.cm.name, ms, meta=meta,
+                      detail=f"{len(result.twins)} twins at price level {result.level}, {len(state.extras)} extra signals"
                       + (", bars allowed" if state.allow_nightlife else "") + (f"; {result.note}" if result.note else ""))
         floor = rank.rating_floor(origin)
         ranked = rank.pick(origin, found, floor, visited, state.allow_nightlife, n=None)

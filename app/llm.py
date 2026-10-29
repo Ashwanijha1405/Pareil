@@ -4,6 +4,7 @@ Plain requests instead of the openai package: Windows Application Control blocks
 openai's compiled dependency (jiter) on the dev machine.
 """
 
+import hashlib
 import json
 import re
 import time
@@ -11,6 +12,7 @@ from dataclasses import dataclass
 
 import requests
 
+from app.cache import Cache
 from app.config import Settings
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
@@ -21,6 +23,7 @@ FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$")
 class CallInfo:
     ms: int
     attempts: int
+    cached: bool = False
 
 
 class LLMError(Exception):
@@ -30,10 +33,13 @@ class LLMError(Exception):
 
 
 class LLM:
-    def __init__(self, settings: Settings, timeout: float = 45, retries: int = 1):
+    def __init__(self, settings: Settings, timeout: float = 45, retries: int = 1,
+                 cache: Cache | None = None, read_cache: bool = True):
         self._settings = settings
         self._timeout = timeout
         self._retries = retries
+        self._cache = cache
+        self._read_cache = read_cache
         self._session = requests.Session()
         self._session.headers["Authorization"] = f"Bearer {settings.llm_api_key}"
 
@@ -47,6 +53,11 @@ class LLM:
         ]
         body = {"model": self._settings.llm_model, "messages": messages, "reasoning_effort": "low"}
         url = f"{self._settings.llm_base_url}/chat/completions"
+        key = hashlib.sha256(json.dumps([body["model"], messages]).encode()).hexdigest()
+        if self._cache is not None and self._read_cache:
+            hit, text = self._cache.get(key)
+            if hit:
+                return text, CallInfo(ms=0, attempts=0, cached=True)
         start = time.perf_counter()
         error = "LLM disabled (no key in .env)"
         attempts = 0
@@ -62,7 +73,10 @@ class LLM:
                 continue
             if resp.ok:
                 info = CallInfo(int((time.perf_counter() - start) * 1000), attempts)
-                return resp.json()["choices"][0]["message"]["content"] or "", info
+                text = resp.json()["choices"][0]["message"]["content"] or ""
+                if self._cache is not None:
+                    self._cache.set(key, text)
+                return text, info
             error = f"HTTP {resp.status_code}: {resp.text[:300]}"
             if resp.status_code not in RETRYABLE_STATUS:
                 break

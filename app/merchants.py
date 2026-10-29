@@ -63,7 +63,8 @@ def clean(raw_names: list[str], city_hints: dict[str, str], llm: LLM) -> tuple[l
         done.update(accepted)
         pending = [r for r in pending if r not in done]
         trace.append(TraceEntry(step="clean", tool="llm", status="ok" if not pending else "partial",
-                                ms=info.ms, detail=f"attempt {attempt + 1}: {len(accepted)} valid, {len(pending)} left"))
+                                ms=info.ms, detail=f"attempt {attempt + 1}: {len(accepted)} valid, {len(pending)} left"
+                                + (" (cached)" if info.cached else "")))
 
     if pending:
         why = "LLM disabled" if not llm.enabled else "LLM failed or output invalid"

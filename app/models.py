@@ -118,3 +118,4 @@ class TraceEntry(BaseModel):
     status: str
     ms: int = 0
     detail: str = ""
+    meta: dict = {}  # Qloo calls only: endpoint and key request params, for "How we know"
