@@ -38,35 +38,89 @@
   <main class="content">
 
     <!-- 1. START -->
-    <section id="start" class="state" aria-labelledby="start-title">
+    <section id="start" class="state start-state" aria-labelledby="start-title">
       <div class="start-head">
-        <span class="mark big" aria-hidden="true">P</span>
+        <div class="start-badge-row">
+          <span class="start-badge"><span class="badge-dot"></span> Pareil · Cultural Taste Intelligence</span>
+          <span class="start-subbadge">Powered by Qloo</span>
+        </div>
         <h1 id="start-title" class="display">Same taste. Smaller bill.</h1>
         <p class="lede">Pareil reads where you spend, asks Qloo which places share their vibe, and keeps only the ones one price tier cheaper and rated at least as well.</p>
       </div>
+
+      <div class="start-pillars">
+        <div class="glass pillar-item">
+          <div class="pillar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </div>
+          <div>
+            <h2 class="pillar-title">Same taste &amp; vibe</h2>
+            <p class="pillar-desc">Multi-signal Qloo embeddings match cuisine DNA, atmosphere, and crowd affinity — no generic swaps.</p>
+          </div>
+        </div>
+        <div class="glass pillar-item">
+          <div class="pillar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div>
+            <h2 class="pillar-title">One tier cheaper</h2>
+            <p class="pillar-desc">Strictly 1 price tier down ($$$$ → $$$ or $$$ → $$) to unlock real savings without downgrading your experience.</p>
+          </div>
+        </div>
+        <div class="glass pillar-item">
+          <div class="pillar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg>
+          </div>
+          <div>
+            <h2 class="pillar-title">Never lower rated</h2>
+            <p class="pillar-desc">Quality floor is enforced: recommended spots must match or exceed your original place's customer rating.</p>
+          </div>
+        </div>
+      </div>
+
       <div class="start-cards">
         <button type="button" class="glass card start-card" data-demo="nyc">
-          <span class="card-kicker">Demo</span>
+          <div class="card-meta-top">
+            <span class="card-kicker">Featured Demo · USD</span>
+            <span class="card-badge">New York</span>
+          </div>
           <span class="card-title">Try NYC demo</span>
-          <span class="card-sub">Carbone, Raoul's, Katz's and more · 41 transactions · USD</span>
-          <span class="card-status" data-status="nyc">Checking…</span>
+          <span class="card-sub">Carbone, Raoul's, Katz's and more · 41 transactions · See ~$494/mo in taste twin savings</span>
+          <div class="card-action">
+            <span class="card-status" data-status="nyc">Checking…</span>
+            <span class="card-cta-icon" aria-hidden="true">→</span>
+          </div>
         </button>
         <button type="button" class="glass card start-card" data-demo="blr">
-          <span class="card-kicker">Demo</span>
+          <div class="card-meta-top">
+            <span class="card-kicker">Featured Demo · INR</span>
+            <span class="card-badge">Bengaluru</span>
+          </div>
           <span class="card-title">Try Bengaluru demo</span>
-          <span class="card-sub">Fatty Bao, ARAKU, Sharief Bhai and more · 30 transactions · INR</span>
-          <span class="card-status" data-status="blr">Checking…</span>
+          <span class="card-sub">Fatty Bao, ARAKU, Sharief Bhai and more · 30 transactions · See ₹18,500/mo in taste twin savings</span>
+          <div class="card-action">
+            <span class="card-status" data-status="blr">Checking…</span>
+            <span class="card-cta-icon" aria-hidden="true">→</span>
+          </div>
         </button>
         <label class="glass card start-card upload-card" for="file">
-          <span class="card-kicker">Your data</span>
-          <span class="card-title">Upload your spending (CSV)</span>
-          <span class="card-sub">Columns: <code>date, merchant, amount, city</code> (optional <code>currency</code>: USD or INR). Up to 300 rows, 200 KB. New York or Bengaluru.</span>
-          <span class="card-status">Choose a file</span>
+          <div class="card-meta-top">
+            <span class="card-kicker">Your data</span>
+            <span class="card-badge upload-badge">CSV Upload</span>
+          </div>
+          <span class="card-title">Upload your spending</span>
+          <span class="card-sub">Columns: <code>date, merchant, amount, city</code> (NYC or BLR, optional <code>currency</code>). Up to 300 rows, 200 KB.</span>
+          <div class="card-action">
+            <span class="card-status">Choose a file</span>
+            <span class="card-cta-icon" aria-hidden="true">↑</span>
+          </div>
           <input id="file" type="file" accept=".csv,text/csv" class="visually-hidden">
         </label>
       </div>
       <p id="start-error" class="alert" role="alert" hidden></p>
-      <p class="footnote">Places and ratings from Qloo · savings are estimates from your own spending</p>
+      <div class="start-footer">
+        <p class="footnote">Places and ratings from Qloo · savings are estimates from your own spending</p>
+      </div>
     </section>
 
     <!-- 2. RUNNING -->
