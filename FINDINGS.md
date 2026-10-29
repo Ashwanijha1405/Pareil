@@ -82,7 +82,7 @@ Docs: `signal.interests.entities` accepts "a comma-separated list of entity IDs"
 ## Other observed tag facts
 
 - Bar tag IDs (observed, for `widen_tags`): `urn:tag:category:place:bar`, `urn:tag:category:place:wine_bar`, `urn:tag:category:place:cocktail_bar`, `urn:tag:category:place:pub`.
-- Some entries in an entity's `tags` list have no `id` key. Parse them with `.get("id")`.
+- **The tag key name differs by endpoint:** `/search` and `/entities` return `tags[].tag_id`, while `/v2/insights` returns `tags[].id`. `Place.from_qloo` reads either.
 
 ## Verdict
 
