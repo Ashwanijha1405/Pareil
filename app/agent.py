@@ -77,6 +77,7 @@ class SignalState:
     two_tiers_down: bool = False
     tags: tuple[str, ...] = resolve.FOOD_TAGS
     decisions: list[dict] = field(default_factory=list)
+    hard_to_beat: str = ""
 
     @property
     def allow_nightlife(self) -> bool:
@@ -85,6 +86,32 @@ class SignalState:
 
 def concept_label(key: str) -> str:
     return key.replace("_", " ").title()
+
+
+def offered_actions(dropped: dict[str, int], one_down: int, state: "SignalState", others: list[str],
+                    tier: int) -> tuple[list[Action], str]:
+    """Recovery actions code allows, from why candidates were rejected. Returns (actions, cause).
+
+    - mostly rating_below_floor     -> only give_up: no allowed action can beat the origin's rating
+    - mostly no_shared_specific_tag -> broaden_signal, widen_tags (each if not used up yet)
+    - Qloo returned < 2 places one tier down (thin supply) -> allow_two_tiers_down (tier >= 3, once)
+    give_up is always offered. "Mostly" means more than half of all rejections.
+    """
+    total = sum(dropped.values())
+    if total and dropped.get("rating_below_floor", 0) * 2 > total:
+        return ["give_up"], "rating"
+    offered: list[Action] = []
+    cause = "other"
+    if total and dropped.get("no_shared_specific_tag", 0) * 2 > total:
+        cause = "cuisine"
+        if any(e not in state.extras for e in others):
+            offered.append("broaden_signal")
+        if not state.allow_nightlife:
+            offered.append("widen_tags")
+    if one_down < MIN_PICKS and not state.two_tiers_down and tier - 2 >= 1:
+        cause = "thin_supply" if cause == "other" else cause
+        offered.append("allow_two_tiers_down")
+    return offered + ["give_up"], cause
 
 
 class Agent:
@@ -153,10 +180,13 @@ class Agent:
                 needs_review.append(self._review(m, res.reason))
 
         amounts = {r.place.entity_id: m.amounts for m, r in resolved}
-        known = tiers.known_amounts(amounts, {r.place.entity_id: r.place.price_level for _, r in resolved})
+        known, excluded = tiers.known_amounts(amounts, {r.place.entity_id: r.place.price_level for _, r in resolved})
+        names = {r.place.entity_id: r.place.name for _, r in resolved}
+        self._log("tier", "code", "ok", detail="tier averages from " + ", ".join(
+            f"tier {t}: {len(a)} bills" for t, a in sorted(known.items()))
+            + (f"; excluded (spends like a lower tier): {', '.join(names[e] for e in excluded)}" if excluded else ""))
         by_visits = sorted(resolved, key=lambda mr: (-mr[0].visits, -sum(mr[0].amounts), mr[0].cm.name))
         visited_ids = {r.place.entity_id for _, r in resolved}
-        names = {r.place.entity_id: r.place.name for _, r in resolved}
 
         swaps, candidates, already_budget = [], [], []
         for m, res in resolved:  # already in total-spend order, which dedupe relies on
@@ -192,6 +222,7 @@ class Agent:
                 "concepts": sorted(rank.food_concepts(origin)), "branch_note": res.branch_note,
                 "twins_path": paths, "signals": [names.get(e, e) for e in [origin.entity_id] + state.extras],
                 "rating_floor": rank.rating_floor(origin), "recovery": state.decisions,
+                "hard_to_beat": state.hard_to_beat,
                 "candidates_before_dedupe": len(ranked),
                 "_origin": origin, "_signal_ids": [origin.entity_id] + state.extras,
                 "_per_month": savings.visits_per_month(m.visits, first, last),
@@ -284,16 +315,7 @@ class Agent:
     # Qloo client, and stops after MAX_RECOVERY_ITERS. If the LLM fails or picks something
     # not allowed, a fixed rule decides instead, and the trace says so.
     # The rating floor is never relaxed: "never worse" is not negotiable.
-
-    def _allowed(self, state: SignalState, others: list[str], tier: int) -> list[Action]:
-        allowed: list[Action] = []
-        if any(e not in state.extras for e in others):
-            allowed.append("broaden_signal")
-        if not state.two_tiers_down and tier - 2 >= 1:
-            allowed.append("allow_two_tiers_down")
-        if not state.allow_nightlife:
-            allowed.append("widen_tags")
-        return allowed + ["give_up"]
+    # Which actions are offered at all is decided by offered_actions() from the rejection reasons.
 
     def _choose(self, m: Merchant, tier: int, state: SignalState, allowed: list[Action],
                 n_candidates: int, dropped: dict, n_found: int) -> tuple[Action, str, str]:
@@ -331,8 +353,16 @@ class Agent:
             if len(ranked) >= MIN_PICKS:
                 break
             dropped = rank.drop_reasons(origin, found, rank.rating_floor(origin), visited, state.allow_nightlife)
-            allowed = self._allowed(state, others, tier)
-            action, reason, decided_by = self._choose(m, tier, state, allowed, len(ranked), dropped, len(found))
+            one_down = sum(1 for t in found if t.price_level == tier - 1)
+            allowed, cause = offered_actions(dropped, one_down, state, others, tier)
+            if allowed == ["give_up"]:
+                action, decided_by = "give_up", "code (only option)"
+                reason = (f"most rejections were rated below {rank.rating_floor(origin)}" if cause == "rating"
+                          else f"no offered action can fix these rejections: {json.dumps(dropped)}")
+            else:
+                action, reason, decided_by = self._choose(m, tier, state, allowed, len(ranked), dropped, len(found))
+            if action == "give_up" and cause == "rating" and not ranked:
+                state.hard_to_beat = f"Hard to beat: rated {rank.rating_floor(origin):.1f}, nothing cheaper matched it."
             state.decisions.append({"iteration": i + 1, "action": action, "reason": reason, "decided_by": decided_by})
             self._log("recover", "code", action, m.cm.name, detail=f"iteration {i + 1}, decided by {decided_by}: {reason}")
             if action == "give_up":
@@ -369,11 +399,11 @@ class Agent:
 
     @staticmethod
     def _template(origin: Place, twin: RankedTwin, drivers: list[dict]) -> str:
-        lead = (f"{drivers[0]['percent']}% of this match comes from your visits to {drivers[0]['place']}"
-                if drivers else f"Qloo matches it to your taste for {origin.name}")
-        cuisine = concept_label(twin.shared[0]) if twin.shared else "similar"
+        cuisine = concept_label(twin.shared[0]) if twin.shared else "A close match"
         steps = "two price tiers" if twin.tiers_down >= 2 else "one price tier"
-        return f"{lead}; like {origin.name} it's {cuisine}, {steps} cheaper and rated {twin.business_rating:.1f}."
+        lead = (f"Picked mostly because you go to {drivers[0]['place']} ({drivers[0]['percent']}% of the match)"
+                if drivers else f"A Qloo taste match for {origin.name}")
+        return f"{lead}. {cuisine} like {origin.name}, {steps} cheaper, rated {twin.business_rating:.1f}."
 
     def _explain(self, swaps: list[dict], names: dict[str, str]) -> None:
         items, allowed_by_id, facts = [], {}, {}
@@ -382,10 +412,13 @@ class Agent:
             for pi, p in enumerate(s["_picks"]):
                 pid = f"s{si}p{pi}"
                 drivers = self._drivers(p, s["_signal_ids"], names)
-                allowed_by_id[pid] = {origin.name, p.name, *(d["place"] for d in drivers)}
+                top = drivers[:1]
+                allowed_by_id[pid] = {origin.name, p.name, *(d["place"] for d in top)}
                 facts[pid] = (origin, p, drivers, s["picks"][pi])
                 items.append({"pick_id": pid, "origin": origin.name, "swap": p.name,
-                              "match_drivers": drivers, "shared_cuisine": [concept_label(c) for c in p.shared],
+                              "top_driver": top[0] if top else None,
+                              "shared_cuisine": [concept_label(c) for c in sorted(
+                                  p.shared, key=lambda c: (c in rank.BROAD_CONCEPTS, c))],
                               "price_tiers_cheaper": p.tiers_down, "swap_rating": round(p.business_rating, 1)})
         if not items:
             return
@@ -395,9 +428,9 @@ class Agent:
         if self.llm.enabled:
             prompt = (
                 "For each item write ONE sentence (max 30 words) on why 'swap' is a good cheaper alternative to 'origin'.\n"
-                "1. Start with match_drivers: which of the user's places drove the match, with the percent "
-                "(e.g. 'Driven 60% by your visits to [[X]]').\n"
-                "2. Then name ONE shared_cuisine value.\n"
+                "Write it the way a friend would say it. First say that top_driver (one of the user's own places) "
+                "is the main reason for the match, with its percent in brackets, e.g. 'Your [[X]] visits drive this one (39%)'. "
+                "Then name ONE shared_cuisine value. Mention no other user place.\n"
                 "Use only facts in the item. Wrap every place name in [[double brackets]] and name only places in that item. "
                 "Do not mention drinks, beer, wine, coffee, takeout, delivery or reservations.\n"
                 'Reply with JSON only: {"items": [{"pick_id": "...", "why": "..."}]}\n\n'

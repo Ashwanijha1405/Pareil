@@ -43,7 +43,7 @@ def print_table(r: dict) -> None:
         for i, p in enumerate(rows):
             origin = cut(f"{sw['qloo_name']} {TIER_SIGNS[sw['tier']]}", 22) if i == 0 else ""
             if p is None:
-                print(f"{origin:22} {'(no twin passed the filters)':26}")
+                print(f"{origin:22} {sw['hard_to_beat'] or '(no twin passed the filters)'}")
                 continue
             tier = f"{TIER_SIGNS[sw['tier']]}->{TIER_SIGNS.get(p['price_level'], '?')}" + ("!" if p["label"] else "")
             driver = f"{p['drivers'][0]['place']} {p['drivers'][0]['percent']}%" if p.get("drivers") else "-"
@@ -73,6 +73,8 @@ def print_report(r: dict) -> None:
               f" | {sw['candidates_before_dedupe']} candidates before dedupe")
         for d in sw["recovery"]:
             print(f"   recovery {d['iteration']}: {d['action']} ({d['decided_by']}): {d['reason']}")
+        if sw["hard_to_beat"]:
+            print(f"   {sw['hard_to_beat']}")
         for p in sw["picks"]:
             print(f"   -> {p['name']}: {p['why']}" + ("" if p["why_source"] == "llm" else "  [template]"))
         if sw["saving"]:
