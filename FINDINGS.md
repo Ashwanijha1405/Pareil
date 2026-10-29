@@ -76,7 +76,13 @@ Docs: `signal.interests.entities` accepts "a comma-separated list of entity IDs"
 - **Equal weights wash out the origin.** S1 drifted to tier-1 casual places (Bobwhite, 2nd Ave Deli). They're "personal", but they're no longer twins of Carbone.
 - **Weights work.** At 3/1/1, Carbone becomes the strongest input and the results go back to Carbone-like places (Via Carota, Raoul's, Misi).
 - **Explainability names each input**, so a "why" can say which of the user's places drove a pick.
-- Decision for `twins.find`: POST with origin weight 3 and the 2 extra signals at weight 1. Still to verify: the filter params in a POST body (I'll check that in `twins.py`).
+- Decision for `twins.find`: POST with origin weight 3 and the 2 extra signals at weight 1.
+- **Filters work in the POST body (P1, verified 2026-10-29).** I sent weights 3/1/1 with `"filter.tags": "<food tags, comma-separated>"` and `"filter.price_level.max": 3`. Result: HTTP 200, 20/20 food-tagged, 0/20 over the cap or missing `price_level`, and all 3 inputs attributed on 20/20 results. `twins.py` still falls back to GET with equal weights if a POST fails or a result breaks a filter, and the trace records which path was used.
+
+## Other observed tag facts
+
+- Bar tag IDs (observed, for `widen_tags`): `urn:tag:category:place:bar`, `urn:tag:category:place:wine_bar`, `urn:tag:category:place:cocktail_bar`, `urn:tag:category:place:pub`.
+- Some entries in an entity's `tags` list have no `id` key. Parse them with `.get("id")`.
 
 ## Verdict
 
