@@ -1,5 +1,5 @@
 from app.models import Place, Tag, Twin
-from app.rank import concepts, dedupe, drop_reasons, is_nightlife_only, pick, rating_floor
+from app.rank import concepts, dedupe, drop_reasons, is_nightlife_only, pick, rating_floor, specific_concepts
 
 
 def tags(*ids):
@@ -50,7 +50,23 @@ def test_vibe_check_rejects_twin_without_shared_cuisine():
     ramen = twin("r", "Ivan Ramen", 4.7, concepts_=("japanese", "ramen"))
     only_generic = twin("g", "Generic", 4.7, concepts_=("seafood",))
     assert pick(ORIGIN, [ramen, only_generic], floor=4.3) == []
-    assert drop_reasons(ORIGIN, [ramen, only_generic], 4.3) == {"no_shared_cuisine": 2}
+    assert drop_reasons(ORIGIN, [ramen, only_generic], 4.3) == {"no_shared_specific_tag": 2}
+
+
+def test_broad_tag_alone_does_not_pass_vibe_check():
+    # Katz's vs Murray's Cheese in the sample: both "american", nothing more specific.
+    katz = Place(entity_id="k", name="Katz's", business_rating=4.5, tags=cuisine("american", "deli", "jewish"))
+    cheese = twin("m", "Murray's Cheese", 4.6, concepts_=("american",))
+    deli = twin("r", "Russ & Daughters", 4.6, concepts_=("american", "deli", "jewish"))
+    assert specific_concepts(cheese) == set()
+    assert [p.entity_id for p in pick(katz, [cheese, deli], floor=4.5)] == ["r"]
+    assert drop_reasons(katz, [cheese, deli], 4.5) == {"no_shared_specific_tag": 1}
+
+
+def test_broad_tags_still_count_toward_overlap_score():
+    katz = Place(entity_id="k", name="Katz's", business_rating=4.5, tags=cuisine("american", "deli", "jewish"))
+    [deli] = pick(katz, [twin("r", "Russ", 4.6, concepts_=("american", "deli"))], floor=4.5)
+    assert deli.jaccard == round(2 / 3, 3)
 
 
 def test_nightlife_only_twin_rejected_unless_allowed():
@@ -58,7 +74,7 @@ def test_nightlife_only_twin_rejected_unless_allowed():
     assert is_nightlife_only(bar)
     assert drop_reasons(ORIGIN, [bar], 4.3) == {"nightlife_only": 1}
     # Allowed past the nightlife rule, it still has to share a cuisine.
-    assert drop_reasons(ORIGIN, [bar], 4.3, allow_nightlife=True) == {"no_shared_cuisine": 1}
+    assert drop_reasons(ORIGIN, [bar], 4.3, allow_nightlife=True) == {"no_shared_specific_tag": 1}
 
 
 def test_bar_that_serves_the_same_cuisine_is_not_nightlife_only():

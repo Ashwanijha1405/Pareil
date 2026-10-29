@@ -2,8 +2,8 @@
 
 Product promise: same vibe, cheaper, never worse. A twin is rejected if it is the origin,
 a place the user already visits, a branch of the same brand, unrated, rated below the origin
-(4.0 if the origin has no rating), shares no meaningful cuisine/genre concept with the origin,
-or is nightlife-only while the origin is a restaurant (unless bars were explicitly allowed).
+(4.0 if the origin has no rating), shares no SPECIFIC cuisine/genre concept with the origin
+(broad ones like "american" or "fine_dining" don't count alone), or is nightlife-only while the origin is a restaurant (unless bars were explicitly allowed).
 
     score = (business_rating / 5) * (0.5 + 0.5 * jaccard)
 
@@ -25,6 +25,11 @@ CONCEPT_PREFIXES = ("urn:tag:cuisine:qloo:", "urn:tag:genre:place:restaurant:", 
 GENERIC_CONCEPTS = {"restaurant", "place", "seafood", "food", "takeout", "delivery"}
 NIGHTLIFE_CONCEPTS = {"bar", "wine_bar", "cocktail_bar", "lounge_bar", "pub", "beer_bar",
                       "sports_bar", "night_club", "hookah_bar", "karaoke_bar"}
+# Count toward overlap but can't satisfy the vibe check alone: umbrella cuisines and
+# meal/occasion/style concepts, from real NYC responses (american on 39/117 twins, new_american 16).
+BROAD_CONCEPTS = {"american", "new_american", "contemporary_american", "modern_american", "european",
+                  "asian", "mediterranean", "fusion", "eurasian", "international",
+                  "fine_dining", "brunch", "lunch", "breakfast", "family", "event_venue", "dance"}
 
 
 def concepts(place: Place) -> set[str]:
@@ -41,6 +46,10 @@ def concepts(place: Place) -> set[str]:
 
 def food_concepts(place: Place) -> set[str]:
     return concepts(place) - NIGHTLIFE_CONCEPTS
+
+
+def specific_concepts(place: Place) -> set[str]:
+    return food_concepts(place) - BROAD_CONCEPTS
 
 
 def is_nightlife_only(place: Place) -> bool:
@@ -75,8 +84,8 @@ def reject_reason(origin: Place, twin: Twin, floor: float, exclude_ids: set[str]
         return "rating_below_floor"
     if not allow_nightlife and is_nightlife_only(twin) and not is_nightlife_only(origin):
         return "nightlife_only"
-    if not food_concepts(origin) & food_concepts(twin):
-        return "no_shared_cuisine"
+    if not specific_concepts(origin) & specific_concepts(twin):
+        return "no_shared_specific_tag"
     return ""
 
 
