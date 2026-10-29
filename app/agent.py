@@ -217,7 +217,8 @@ class Agent:
             self._log("tier", "code", tier.source, m.cm.name, detail=f"tier {tier.tier}")
             if tier.tier <= 1:
                 already_budget.append({"merchant": m.cm.name, "qloo_name": origin.name, "visits": m.visits,
-                                       "avg_bill": m.avg_bill, "tier": tier.tier, "tier_source": tier.source})
+                                       "avg_bill": m.avg_bill, "tier": tier.tier, "tier_source": tier.source,
+                                       "image": origin.image})
                 self._log("twins", "code", "skipped", m.cm.name, detail="tier 1: already budget-friendly, no call")
                 continue
             others = [r.place.entity_id for _, r in by_visits if r.place.entity_id != origin.entity_id]
@@ -237,7 +238,7 @@ class Agent:
             swaps.append({
                 "merchant": m.cm.name, "raw": m.raws, "cleaned_by": m.cm.cleaned_by, "visits": m.visits,
                 "avg_bill": m.avg_bill, "tier": tier.tier, "tier_source": tier.source,
-                "qloo_name": origin.name, "address": origin.address, "rating": origin.business_rating,
+                "qloo_name": origin.name, "address": origin.address, "image": origin.image, "rating": origin.business_rating,
                 "concepts": sorted(rank.food_concepts(origin)), "branch_note": res.branch_note,
                 "kind": self._kind(m.cm.category, rank.food_concepts(origin)),
                 "twins_path": paths, "signals": [names.get(e, e) for e in [origin.entity_id] + state.extras],
@@ -342,7 +343,7 @@ class Agent:
 
     @staticmethod
     def _pick_dict(p: RankedTwin) -> dict:
-        return {"name": p.name, "address": p.address, "price_level": p.price_level,
+        return {"name": p.name, "address": p.address, "image": p.image, "price_level": p.price_level,
                 "tiers_down": p.tiers_down, "label": "two tiers down" if p.tiers_down >= 2 else "",
                 "rating": round(p.business_rating, 1), "shared": [concept_label(c) for c in p.shared],
                 "jaccard": p.jaccard, "score": p.score, "affinity": round(p.affinity, 3)}

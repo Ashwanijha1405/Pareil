@@ -265,6 +265,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .place-with-img { display: flex; gap: 16px; align-items: flex-start; }
 .place-thumb-wrap { width: 70px; height: 70px; border-radius: 12px; overflow: hidden; flex: none; border: 1px solid rgba(255, 255, 255, 0.12); background: var(--surface-2); }
 .place-thumb { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.35s ease; }
+/* no Qloo photo: a monogram, so no place is ever shown with a picture of somewhere else */
+.monogram { display: flex; align-items: center; justify-content: center; font-family: var(--serif); color: var(--brass);
+  background: radial-gradient(circle at 30% 25%, rgba(201, 164, 106, 0.18), transparent 60%), var(--surface-2); }
+.place-thumb.monogram { font-size: 34px; }
+.tile-img.monogram { font-size: 72px; }
 .place:hover .place-thumb { transform: scale(1.08); }
 .place-info { flex: 1; min-width: 0; }
 .place-twin { border-color: var(--brass); }

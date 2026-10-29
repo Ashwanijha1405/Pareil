@@ -50,56 +50,17 @@ const hhmm = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", mi
 const shortName = (name) => name.split(/ [-|·] | \| /)[0];
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-// ---- cafe & restaurant images -------------------------------------------------------------
-const PLACE_IMAGES = {
-  "carbone": "/images/carbone.jpg",
-  "via carota": "/images/via-carota.jpg",
-  "ci siamo": "/images/ci-siamo.jpg",
-  "raoul's": "/images/raouls.jpg",
-  "raouls": "/images/raouls.jpg",
-  "le gigot": "/images/le-gigot.jpg",
-  "joseph leonard": "/images/joseph-leonard.jpg",
-  "katz's": "/images/katzs.jpg",
-  "katzs": "/images/katzs.jpg",
-  "katz's delicatessen": "/images/katzs.jpg",
-  "russ & daughters": "/images/russ-and-daughters.jpg",
-  "joe's pizza": "/images/joes-pizza.jpg",
-  "levain bakery": "/images/levain-bakery.jpg",
-  "au cheval": "/images/au-cheval.jpg",
-  "misi": "/images/misi.jpg",
-  "malaparte": "/images/malaparte.jpg",
-  "los tacos": "/images/los-tacos.jpg",
-  "the fatty bao": "/images/fatty-bao.jpg",
-  "fatty bao": "/images/fatty-bao.jpg",
-  "araku": "/images/araku-coffee.jpg",
-  "araku coffee": "/images/araku-coffee.jpg",
-  "hole in the wall": "/images/hole-in-the-wall.jpg",
-  "matteo coffea": "/images/matteo-coffea.jpg",
-  "sharief bhai": "/images/sharief-bhai.jpg",
-  "toit": "/images/toit.jpg",
-  "smoke house deli": "/images/smoke-house-deli.jpg",
-  "leon's burgers": "/images/leons-burgers.jpg",
-  "thai basil": "/images/thai-basil.jpg",
-  "daily sushi": "/images/daily-sushi.jpg",
-};
-
-function getPlaceImage(name = "", concepts = [], kind = "") {
-  const low = String(name).toLowerCase().replace(/['’]/g, "");
-  for (const [k, src] of Object.entries(PLACE_IMAGES)) {
-    const kLow = k.replace(/['’]/g, "");
-    if (low.includes(kLow) || kLow.includes(low)) return src;
-  }
-  const allTags = [low, ...(concepts || []), kind].join(" ").toLowerCase();
-  if (/coffee|cafe|espresso|roast|bakery|croissant/i.test(allTags)) return "/images/sample-coffee.jpg";
-  if (/pizza|italian|pasta|trattoria|risotto/i.test(allTags)) return "/images/via-carota.jpg";
-  if (/beer|brew|pub|bar|cocktail|ale/i.test(allTags)) return "/images/sample-beer.jpg";
-  if (/brunch|breakfast|waffle|pancake|egg/i.test(allTags)) return "/images/hole-in-the-wall.jpg";
-  if (/burger|sandwich|wing|fry/i.test(allTags)) return "/images/leons-burgers.jpg";
-  if (/deli|pastrami|bagel|smoke/i.test(allTags)) return "/images/katzs.jpg";
-  if (/asian|sushi|thai|bao|noodle|ramen|dim sum/i.test(allTags)) return "/images/fatty-bao.jpg";
-  if (/indian|biryani|curry|mughlai/i.test(allTags)) return "/images/sharief-bhai.jpg";
-  if (/french|bistro/i.test(allTags)) return "/images/le-gigot.jpg";
-  return "/images/cafe-default.jpg";
+// ---- venue photos -------------------------------------------------------------------------
+// Only Qloo's own photo of the venue is shown. No photo (or one that fails to load) becomes a
+// monogram tile, never a stock picture of some other place.
+function monogram(name, cls) {
+  return h("div", { class: `${cls} monogram`, role: "img", "aria-label": `${name}: no photo from Qloo` }, (name.trim()[0] || "?").toUpperCase());
+}
+function photo(url, name, cls) {
+  if (!url) return monogram(name, cls);
+  const img = h("img", { class: cls, src: url, alt: name, loading: "lazy", referrerpolicy: "no-referrer" });
+  img.addEventListener("error", () => img.replaceWith(monogram(name, cls)), { once: true });
+  return img;
 }
 
 // ---- preloader ----------------------------------------------------------------------------
@@ -254,7 +215,7 @@ function sampleTile(r, s, city) {
   const p = s.picks[0];
   return h("div", { class: "swap-tile tile-has-img" },
     h("div", { class: "tile-img-container" },
-      h("img", { class: "tile-img", src: getPlaceImage(p.name, p.shared, s.kind), alt: "", loading: "lazy" }),
+      photo(p.image, p.name, "tile-img"),
       h("span", { class: "chip chip-overlay" }, `${p.shared[0] || s.kind} · ${city}`)),
     h("div", { class: "tile-body" },
       h("p", { class: "tile-pair" }, `${shortName(s.merchant)} → ${shortName(p.name)}`),
@@ -270,7 +231,7 @@ function fillTiles(nyc, blr) {
   ];
   if (!tiles.length) return;
   $("sample-tiles").replaceChildren(...tiles);
-  $("tiles-note").textContent = `Top swaps from the ${blr ? "NYC and Bengaluru demo months" : "NYC demo month"}, if you swap 1 in 2 visits.`;
+  $("tiles-note").textContent = `Top swaps from the ${blr ? "NYC and Bengaluru demo months" : "NYC demo month"}, if you swap 1 in 2 visits. Photos via Qloo.`;
 }
 
 function fillAgentTrace(r) {
@@ -316,14 +277,12 @@ function fillSampleCard(report) {
     $("sc-from").textContent = shortName(s.qloo_name);
     $("sc-from-tier").textContent = tiers(report, s.tier);
     $("sc-from-meta").textContent = `${plural(s.visits, "visit")} this month · avg ${money(report, s.avg_bill)} a visit · rated ${s.rating.toFixed(1)}`;
-    const fromImg = $("sc-from-img");
-    if (fromImg) { fromImg.src = getPlaceImage(s.qloo_name); fromImg.alt = shortName(s.qloo_name); }
+    $("sc-from-photo").replaceChildren(photo(s.image, shortName(s.qloo_name), "place-thumb"));
     $("sc-down").textContent = p.tiers_down >= 2 ? "two tiers down" : "one tier down";
     $("sc-to").textContent = p.name;
     $("sc-to-tier").textContent = tiers(report, p.price_level);
     $("sc-to-meta").textContent = [`Rated ${p.rating}`, ...p.shared.slice(0, 2)].join(" · ");
-    const toImg = $("sc-to-img");
-    if (toImg) { toImg.src = getPlaceImage(p.name, p.shared, s.kind); toImg.alt = p.name; }
+    $("sc-to-photo").replaceChildren(photo(p.image, p.name, "place-thumb"));
     $("sc-why").replaceChildren(...driverSentence(p));
     $("sc-save").textContent = `≈ ${money(report, s.saving.monthly_half)}`;
     $("sc-note").textContent = `From the NYC demo run at ${hhmm(report.ran_at)} · if you swap 1 in 2 visits${s.saving.estimate ? " · estimate" : ""}`;
@@ -500,7 +459,7 @@ function renderResults(report) {
   $("headline-num").replaceChildren(`~${money(report, sm.monthly_saving_half)}`, h("small", {}, " / month"));
   $("headline-note").textContent = (sm.saving_is_estimate ? "Estimate · some tiers use a fallback average. " : "Estimate from your own bills. ")
     + `${plural(topSwaps(report).reduce((t, s) => t + s.picks.length, 0), "swap")} for ${plural(topSwaps(report).length, "place")} · rating floor: never lower.`;
-  $("res-foot").textContent = `${report.source} · ${sm.qloo_calls} Qloo calls · places and ratings from Qloo · savings are estimates from your own spending`;
+  $("res-foot").textContent = `${report.source} · ${sm.qloo_calls} Qloo calls · places, ratings and photos from Qloo · savings are estimates from your own spending`;
 
   renderHero();
   renderGrid();
@@ -522,8 +481,6 @@ function renderHero() {
   const p = pool[state.heroIndex];
   const last = state.heroIndex >= pool.length - 1;
   const origin = shortName(s.qloo_name);
-  const originImg = getPlaceImage(origin);
-  const twinImg = getPlaceImage(p.name, p.shared, s.kind);
 
   const copy = h("div", { class: "res-hero-copy" },
     h("p", { class: "eyebrow" }, `Biggest saving · option ${state.heroIndex + 1} of ${pool.length} for ${origin}`),
@@ -541,13 +498,13 @@ function renderHero() {
   const card = h("div", { class: "swapcard" },
     h("div", { class: "swapcard-head" }, h("span", { class: "label" }, "Your swap"), h("span", { class: "pill-line" }, r.currency === "INR" ? "Bengaluru" : "New York")),
     h("div", { class: "place place-with-img" },
-      h("div", { class: "place-thumb-wrap" }, h("img", { class: "place-thumb", src: originImg, alt: origin, loading: "lazy" })),
+      h("div", { class: "place-thumb-wrap" }, photo(s.image, origin, "place-thumb")),
       h("div", { class: "place-info" },
         h("div", { class: "place-row" }, h("span", { class: "place-name" }, origin), h("span", { class: "tiers muted-tiers" }, tiers(r, s.tier))),
         h("p", { class: "place-meta" }, `${plural(s.visits, "visit")} · avg ${money(r, s.avg_bill)} a visit · rated ${s.rating.toFixed(1)}`))),
     h("div", { class: "tier-divider" }, h("span"), icon(ICON.down), h("b", {}, p.tiers_down >= 2 ? "two tiers down" : "one tier down"), h("span")),
     h("div", { class: "place place-twin place-with-img" },
-      h("div", { class: "place-thumb-wrap" }, h("img", { class: "place-thumb", src: twinImg, alt: p.name, loading: "lazy" })),
+      h("div", { class: "place-thumb-wrap" }, photo(p.image, p.name, "place-thumb")),
       h("div", { class: "place-info" },
         h("div", { class: "place-row" }, h("span", { class: "place-name" }, p.name), h("span", { class: "tiers brass" }, tiers(r, p.price_level))),
         h("p", { class: "place-meta" }, `Rated ${p.rating} vs ${s.rating.toFixed(1)}`),
@@ -577,10 +534,9 @@ function renderGrid() {
   if (state.filter === "budget") {
     for (const a of r.already_budget) {
       if (!matches(a.qloo_name, a.merchant)) continue;
-      const img = getPlaceImage(a.qloo_name, [], "budget");
       tiles.push(h("div", { class: "swap-tile tile-has-img" },
         h("div", { class: "tile-img-container" },
-          h("img", { class: "tile-img", src: img, alt: a.qloo_name, loading: "lazy" }),
+          photo(a.image, a.qloo_name, "tile-img"),
           h("span", { class: "chip chip-overlay" }, "Already budget-friendly")),
         h("div", { class: "tile-body" },
           h("p", { class: "tile-name" }, shortName(a.qloo_name)),
@@ -592,12 +548,11 @@ function renderGrid() {
       if (state.filter !== "all" && s.kind !== state.filter) continue;
       for (const p of s.picks) {
         if (p === heroPick || !matches(p.name, s.qloo_name, s.merchant, ...p.shared)) continue;
-        const img = getPlaceImage(p.name, p.shared, s.kind);
         const chipText = p.shared.slice(0, 2).join(" · ") || "Taste match";
         tiles.push(h("a", { class: "swap-tile tile-has-img", href: mapsUrl(p), target: "_blank", rel: "noopener",
           "aria-label": `${p.name}, instead of ${shortName(s.qloo_name)}. Opens a map.` },
           h("div", { class: "tile-img-container" },
-            h("img", { class: "tile-img", src: img, alt: p.name, loading: "lazy" }),
+            photo(p.image, p.name, "tile-img"),
             h("span", { class: "chip chip-overlay" }, chipText)),
           h("div", { class: "tile-body" },
             h("p", { class: "tile-name" }, p.name),

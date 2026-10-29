@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 Category = Literal["restaurant", "cafe", "bar", "bakery", "fast_food", "non_food"]
 FOOD_CATEGORIES = {"restaurant", "cafe", "bar", "bakery", "fast_food"}
+QLOO_IMAGE_HOST = "https://images.qloo.com/"  # only Qloo-served photos reach the page
 TierSource = Literal["qloo", "inferred_from_user_spend", "inferred_fixed_bands"]
 
 
@@ -38,6 +39,7 @@ class Place(BaseModel):
     address: str = ""
     price_level: int | None = None
     business_rating: float | None = None
+    image: str = ""  # Qloo's own venue photo, empty when it has none
     tags: list[Tag] = []
 
     @classmethod
@@ -53,6 +55,9 @@ class Place(BaseModel):
             "address": props.get("address") or "",
             "price_level": props.get("price_level"),
             "business_rating": props.get("business_rating"),
+            # properties.images: [{"url", "type"}] seen in /search and /v2/insights responses (qloo_raw/).
+            "image": next((i["url"] for i in props.get("images") or []
+                           if isinstance(i, dict) and str(i.get("url", "")).startswith(QLOO_IMAGE_HOST)), ""),
             # /search and /entities name the key "tag_id"; /v2/insights names it "id".
             "tags": [
                 Tag(id=t.get("id") or t["tag_id"], name=t.get("name", ""), type=t.get("type", ""))
