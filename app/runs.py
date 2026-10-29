@@ -15,7 +15,6 @@ class Run:
     id: str
     source: str  # "NYC demo · 41 transactions"
     live: bool
-    replayed_at: str | None = None  # ISO time of the original run when this is a replay
     created: float = field(default_factory=time.time)
     events: list[dict] = field(default_factory=list)
     report: dict | None = None
@@ -48,8 +47,8 @@ class RunStore:
         self._runs: dict[str, Run] = {}
         self._lock = threading.Lock()
 
-    def create(self, source: str, live: bool, replayed_at: str | None = None) -> Run:
-        run = Run(id=uuid.uuid4().hex[:12], source=source, live=live, replayed_at=replayed_at)
+    def create(self, source: str, live: bool) -> Run:
+        run = Run(id=uuid.uuid4().hex[:12], source=source, live=live)
         with self._lock:
             self._prune()
             self._runs[run.id] = run
