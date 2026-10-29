@@ -112,25 +112,274 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 
 /* hero */
 .hero { position: relative; border: 1px solid var(--border); border-radius: var(--r-section); background: var(--surface); overflow: hidden; padding: clamp(28px, 5vw, 56px); }
-.hero-word {
+
+/* hero word with solid gloss silver jewelry feel & 3d extrusion */
+.hero-word-stage {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  perspective: 1200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  padding: 10px 0 6px;
+}
+
+/* Luminous boutique backlight aura - like a luxury showcase pedestal */
+.hero-jewelry-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 85%;
+  height: 160%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(220, 235, 255, 0.16) 0%,
+    rgba(180, 205, 240, 0.05) 50%,
+    transparent 75%
+  );
+  filter: blur(30px);
+}
+
+.hero-jewelry-wrap {
+  position: relative;
+  display: inline-block;
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.4, 1);
+  z-index: 1;
+}
+
+.hero-jewelry-wrap.ambient-float {
+  animation: jewelryAmbientFloat 8s ease-in-out infinite;
+}
+
+@keyframes jewelryAmbientFloat {
+  0%, 100% {
+    transform: perspective(1200px) rotateX(0deg) rotateY(0deg) translateY(0);
+  }
+  50% {
+    transform: perspective(1200px) rotateX(2.5deg) rotateY(-2deg) translateY(-5px);
+  }
+}
+
+.hero-jewelry-layer {
   font-family: var(--serif);
-  font-size: clamp(110px, 21vw, 310px);
-  line-height: 0.84;
+  font-size: clamp(100px, 19.5vw, 290px);
+  line-height: 0.86;
   letter-spacing: -0.015em;
   text-align: center;
   user-select: none;
-  font-weight: 500;
-  color: #E2E8F0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* LAYER 1: Solid silver cast chassis with chiseled 3D extrusion and deep physical shadow */
+.hero-jewelry-base {
+  display: block;
+  position: relative;
+  color: #B8C5D4;
   text-shadow:
-    0 1px 0 #FFFFFF,
-    0 2px 0 #CBD5E1,
-    0 3px 0 #94A3B8,
-    0 4px 0 #64748B,
-    0 5px 0 #475569,
-    0 6px 0 #334155,
-    0 7px 1px rgba(0, 0, 0, 0.4),
-    0 10px 24px rgba(0, 0, 0, 0.65),
-    0 20px 48px rgba(0, 0, 0, 0.85);
+    /* Specular white top rim highlight */
+    0 -1px 0 rgba(255, 255, 255, 0.95),
+    0 -2px 1px rgba(255, 255, 255, 0.6),
+    /* Precision chiseled 3D metal steps descending down */
+    0 1px 0 #F8FAFC,
+    0 2px 0 #E2E8F0,
+    0 3px 0 #CBD5E1,
+    0 4px 0 #94A3B8,
+    0 5px 0 #64748B,
+    0 6px 0 #475569,
+    0 7px 0 #334155,
+    0 8px 0 #1E293B,
+    0 9px 1px rgba(10, 15, 26, 0.6),
+    /* Ground cast shadows and soft ambient occlusion */
+    0 14px 22px rgba(0, 0, 0, 0.7),
+    0 24px 44px rgba(0, 0, 0, 0.85),
+    0 40px 80px rgba(0, 0, 0, 0.9),
+    0 0 50px rgba(210, 230, 255, 0.2);
+}
+
+/* LAYER 2: Ultra-high contrast polished chrome / liquid silver mirror face */
+.hero-jewelry-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+  z-index: 2;
+
+  background: linear-gradient(
+    135deg,
+    #1A2028 0%,
+    #475464 9%,
+    #9AAEC2 18%,
+    #FFFFFF 28%,
+    #E9F0F8 36%,
+    #FFFFFF 43%,
+    #19212A 48%,   /* Sharp chrome horizon reflection line */
+    #0E141A 51%,   /* Ground contrast line */
+    #4C5B6E 56%,
+    #B0C1D4 68%,
+    #FFFFFF 78%,   /* Secondary specular flash */
+    #DDE6F1 87%,
+    #424F5F 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: brightness(1.06) contrast(1.18);
+}
+
+/* LAYER 3: Micro-machined chiseled bevel & specular chamfer rim */
+.hero-jewelry-rim {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+  z-index: 3;
+  -webkit-text-stroke: 1.2px rgba(255, 255, 255, 0.75);
+  -webkit-text-fill-color: transparent;
+  mix-blend-mode: overlay;
+  opacity: 0.9;
+}
+
+/* LAYER 4: Liquid gloss specular light wave sweeping across the facets */
+.hero-jewelry-gloss {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+  z-index: 4;
+
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 34%,
+    rgba(255, 255, 255, 0.08) 40%,
+    rgba(255, 255, 255, 0.98) 50%,
+    rgba(255, 255, 255, 0.12) 59%,
+    transparent 66%,
+    transparent 100%
+  );
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  mix-blend-mode: color-dodge;
+  animation: jewelryGlintSweep 4.8s cubic-bezier(0.2, 0.8, 0.3, 1) infinite;
+}
+
+@keyframes jewelryGlintSweep {
+  0% {
+    background-position: 190% 0;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  48% {
+    background-position: -90% 0;
+    opacity: 1;
+  }
+  54%, 100% {
+    background-position: -90% 0;
+    opacity: 0;
+  }
+}
+
+/* LAYER 5: 8-Point Diamond Jewelry Sparkle Glints */
+.jewelry-star {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.star-cross, .star-diag {
+  position: absolute;
+  inset: 0;
+}
+.star-diag {
+  transform: rotate(45deg);
+}
+
+.star-cross::before, .star-cross::after,
+.star-diag::before, .star-diag::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: #FFFFFF;
+  border-radius: 50%;
+  box-shadow:
+    0 0 6px 1px #FFFFFF,
+    0 0 14px 3px rgba(210, 235, 255, 0.9),
+    0 0 28px 6px rgba(160, 205, 255, 0.6);
+}
+
+/* Primary cross rays */
+.star-cross::before {
+  width: 100%;
+  height: 2px;
+}
+.star-cross::after {
+  width: 2px;
+  height: 100%;
+}
+
+/* Secondary diagonal rays */
+.star-diag::before {
+  width: 65%;
+  height: 1.5px;
+}
+.star-diag::after {
+  width: 1.5px;
+  height: 65%;
+}
+
+/* Diamond placements across 'Pareil' letter landmarks */
+.jewelry-star.star-p {
+  left: 4%;
+  top: 12%;
+  animation: starTwinkle 4.5s ease-in-out infinite;
+}
+.jewelry-star.star-r {
+  left: 45%;
+  top: 26%;
+  animation: starTwinkle 4.5s ease-in-out 1.2s infinite;
+}
+.jewelry-star.star-dot {
+  left: 81%;
+  top: 8%;
+  animation: starTwinkle 4.5s ease-in-out 2.4s infinite;
+}
+.jewelry-star.star-l {
+  left: 95%;
+  top: 9%;
+  animation: starTwinkle 4.5s ease-in-out 3.6s infinite;
+}
+
+@keyframes starTwinkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.2) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.3) rotate(45deg);
+  }
+  35% {
+    opacity: 0.15;
+    transform: scale(0.4) rotate(90deg);
+  }
+  42% {
+    opacity: 0;
+  }
 }
 .hero-kicker { margin: 18px 0 0; text-align: center; font-size: 12px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--label); }
 .hero-row { display: flex; flex-wrap: wrap; gap: 32px; margin-top: 56px; align-items: stretch; }
@@ -485,14 +734,24 @@ a.swap-tile:hover, .swap-tile:hover {
   .segmented button { flex: 1 1 auto; padding: 0 10px; }
   .swapcard-foot { flex-wrap: wrap; }
   .swapcard-foot .fine-note { text-align: left; }
-  .hero-word {
-    font-size: clamp(80px, 18vw, 160px);
+  .hero-jewelry-layer {
+    font-size: clamp(68px, 17vw, 130px);
+  }
+  .hero-jewelry-base {
     text-shadow:
-      0 1px 0 #FFFFFF,
+      0 -1px 0 rgba(255, 255, 255, 0.9),
+      0 1px 0 #E2E8F0,
       0 2px 0 #CBD5E1,
       0 3px 0 #94A3B8,
-      0 4px 0 #475569,
-      0 6px 16px rgba(0, 0, 0, 0.7);
+      0 4px 0 #64748B,
+      0 5px 0 #334155,
+      0 8px 18px rgba(0, 0, 0, 0.8);
+  }
+  .jewelry-star {
+    transform: scale(0.65);
+  }
+  .jewelry-star.star-r, .jewelry-star.star-l {
+    display: none;
   }
   .pl-ring { width: 300px; height: 300px; }
 }

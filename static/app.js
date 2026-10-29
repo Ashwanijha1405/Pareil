@@ -538,12 +538,67 @@ function renderHow() {
   }));
 }
 
+function initHeroJewelry() {
+  const stage = $("hero-word-stage");
+  const emblem = $("hero-jewelry-emblem");
+  if (!stage || !emblem) return;
+
+  emblem.classList.add("ambient-float");
+
+  let rect = null;
+  const updateRect = () => { rect = stage.getBoundingClientRect(); };
+  window.addEventListener("resize", updateRect);
+  window.addEventListener("scroll", updateRect, { passive: true });
+
+  let targetX = 0;
+  let targetY = 0;
+  let currentX = 0;
+  let currentY = 0;
+  let isHovered = false;
+  let rafId = null;
+
+  function renderTilt() {
+    if (isHovered) {
+      currentX += (targetX - currentX) * 0.12;
+      currentY += (targetY - currentY) * 0.12;
+      emblem.style.transform = `perspective(1200px) rotateX(${currentX.toFixed(2)}deg) rotateY(${currentY.toFixed(2)}deg) scale3d(1.02, 1.02, 1.02)`;
+    }
+    rafId = requestAnimationFrame(renderTilt);
+  }
+  rafId = requestAnimationFrame(renderTilt);
+
+  stage.addEventListener("mouseenter", () => {
+    isHovered = true;
+    emblem.classList.remove("ambient-float");
+    updateRect();
+  });
+
+  stage.addEventListener("mousemove", (e) => {
+    if (!rect) updateRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const nx = (e.clientX - cx) / (rect.width / 2 || 1);
+    const ny = (e.clientY - cy) / (rect.height / 2 || 1);
+    targetX = Math.max(-10, Math.min(10, -ny * 9));
+    targetY = Math.max(-14, Math.min(14, nx * 12));
+  });
+
+  stage.addEventListener("mouseleave", () => {
+    isHovered = false;
+    targetX = 0;
+    targetY = 0;
+    emblem.style.transform = "";
+    emblem.classList.add("ambient-float");
+  });
+}
+
 // ---- wiring -------------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   const linked = location.hash.slice(1); // /#nyc or /#blr opens a demo directly
   const deepLink = linked === "nyc" || linked === "blr";
 
   loadDemos();
+  initHeroJewelry();
 
   const skipBtn = $("pl-skip");
   if (skipBtn) skipBtn.addEventListener("click", () => preloader.hide(0));
