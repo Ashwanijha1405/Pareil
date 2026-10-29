@@ -29,7 +29,9 @@ NIGHTLIFE_CONCEPTS = {"bar", "wine_bar", "cocktail_bar", "lounge_bar", "pub", "b
 # meal/occasion/style concepts, from real NYC responses (american on 39/117 twins, new_american 16).
 BROAD_CONCEPTS = {"american", "new_american", "contemporary_american", "modern_american", "european",
                   "asian", "mediterranean", "fusion", "eurasian", "international",
-                  "fine_dining", "brunch", "lunch", "breakfast", "family", "event_venue", "dance"}
+                  "fine_dining", "brunch", "lunch", "breakfast", "family", "event_venue", "dance",
+                  # course/format words seen in Bengaluru twins (Fatty Bao -> an Italian place via "dessert")
+                  "dessert", "desserts", "fast_food", "vegetarian", "non_vegetarian", "hotel"}
 
 
 def concepts(place: Place) -> set[str]:

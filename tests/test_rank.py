@@ -135,3 +135,9 @@ def test_dedupe_tie_goes_to_earlier_merchant_and_cuts_to_n():
     out = dedupe([first, second], n=3)
     assert [t.entity_id for t in out[0]] == ["pylos", "a", "b"]
     assert out[1] == []
+
+
+def test_course_words_like_dessert_do_not_pass_vibe_check_alone():
+    bao = Place(entity_id="b", name="The Fatty Bao", business_rating=4.3, tags=cuisine("japanese", "dessert"))
+    italian = twin("c", "Chianti", 4.5, concepts_=("italian", "dessert"))
+    assert drop_reasons(bao, [italian], 4.3) == {"no_shared_specific_tag": 1}
