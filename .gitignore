@@ -1,0 +1,9 @@
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+
+# Raw Qloo API responses (local only)
+qloo_raw/
