@@ -26,7 +26,7 @@ def city_key(city: str) -> str:
 
 
 def normalize(name: str) -> str:
-    text = name.lower().replace("’", "'").replace("'", "")
+    text = name.lower().replace("’", "'").replace("'", "").replace("&", " and ")  # "Burgers & Wings" == "Burgers and Wings"
     text = re.sub(r"[^a-z0-9]+", " ", text).replace("new york", " ")
     return " ".join(w for w in text.split() if w not in DROP_TOKENS)
 
@@ -70,16 +70,29 @@ def pick(cm: CleanMerchant, results: list[dict]) -> Resolution:
             names = ", ".join(dict.fromkeys(p.name for p in food if normalize(p.name) != query_norm))
             return Resolution(merchant=cm, status="needs_review", match_score=best_score,
                               reason=f"generic name; Qloo has several: {names}")
+    def is_branch(p: Place) -> bool:
+        # Same name, or (for multi-word names) the name plus a location suffix:
+        # "Leon's Burgers & Wings HSR Layout" is a branch of "Leon's Burgers & Wings".
+        n = normalize(p.name)
+        return n == best_norm or (" " in query_norm and n.startswith(query_norm + " "))
+
     if best_score < 1.0:
-        rivals = [p for s, _, p in scored[1:] if s >= best_score - AMBIGUITY_GAP and normalize(p.name) != best_norm]
+        rivals = [p for s, _, p in scored[1:]
+                  if s >= best_score - AMBIGUITY_GAP and normalize(p.name) != best_norm and not is_branch(p)]
         if rivals:
             names = ", ".join(dict.fromkeys([best.name] + [p.name for p in rivals]))
             return Resolution(merchant=cm, status="needs_review", match_score=best_score,
                               reason=f"ambiguous: {names}")
 
-    branches = sum(1 for p in food if normalize(p.name) == best_norm)
-    note = f"{branches} branches named '{best.name}'; using Qloo's first ({best.address})" if branches > 1 else ""
-    return Resolution(merchant=cm, status="resolved", place=best, match_score=best_score, branch_note=note)
+    branches = [p for s, _, p in scored if s >= best_score - AMBIGUITY_GAP and is_branch(p)]
+    if len(branches) <= 1:
+        return Resolution(merchant=cm, status="resolved", place=best, match_score=best_score)
+    # Prefer the branch whose location words appear in the bank string ("LEONS BURGERS HSR").
+    raw_words = set(normalize(cm.raw).split())
+    located = [p for p in branches if set(normalize(p.name).split()[len(query_norm.split()):]) & raw_words]
+    chosen, how = (located[0], "matched the bank string") if located else (branches[0], "Qloo's first")
+    note = f"{len(branches)} branches; using {chosen.name} ({how})"
+    return Resolution(merchant=cm, status="resolved", place=chosen, match_score=best_score, branch_note=note)
 
 
 def resolve(cm: CleanMerchant, client: QlooClient) -> Resolution:
