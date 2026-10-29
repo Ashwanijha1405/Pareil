@@ -79,7 +79,18 @@ Docs: `signal.interests.entities` accepts "a comma-separated list of entity IDs"
 - Decision for `twins.find`: POST with origin weight 3 and the 2 extra signals at weight 1.
 - **Filters work in the POST body (P1, verified 2026-10-29).** I sent weights 3/1/1 with `"filter.tags": "<food tags, comma-separated>"` and `"filter.price_level.max": 3`. Result: HTTP 200, 20/20 food-tagged, 0/20 over the cap or missing `price_level`, and all 3 inputs attributed on 20/20 results. `twins.py` still falls back to GET with equal weights if a POST fails or a result breaks a filter, and the trace records which path was used.
 
+## Exact price tier: `filter.price_level.min` (2026-10-29, M1)
+
+- **Call:** POST for Via Carota (tier 3), signals Carbone + Joe's Pizza at weights 3/1/1, food tags, `"filter.price_level.min": 2, "filter.price_level.max": 2`.
+- **Result:** HTTP 200 and 20/20 results at exactly level 2.
+- **Better vibe:** results were Italian (Marta, Cotenna, Fiaschetteria Pistoia), where `max=2` alone included ramen and bakeries at level 1.
+- **Decision:** `twins.py` uses min = max = origin tier − 1. The recovery action `allow_two_tiers_down` adds a second query at tier − 2.
+
 ## Other observed tag facts
+
+- Cuisine/genre appears in three tag families with different spellings: `cuisine:qloo:italian`, `genre:place:restaurant:italian` and `category:place:italian_restaurant`. `rank.concepts()` reduces all three to `italian`.
+- Generic tags in 117 NYC twin responses: `genre:place` and `genre:place:restaurant` (117/117), `category:place:restaurant`, and `cuisine:qloo:seafood` (72/117, including pizza and burger places). They're ignored for the vibe check.
+- About a third of tag entries have no `type` field, so tags are classified by ID prefix.
 
 - Bar tag IDs (observed, for `widen_tags`): `urn:tag:category:place:bar`, `urn:tag:category:place:wine_bar`, `urn:tag:category:place:cocktail_bar`, `urn:tag:category:place:pub`.
 - **The tag key name differs by endpoint:** `/search` and `/entities` return `tags[].tag_id`, while `/v2/insights` returns `tags[].id`. `Place.from_qloo` reads either.
