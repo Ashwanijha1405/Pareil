@@ -23,7 +23,7 @@ def tier_avg(tier: int, known: dict[int, list[float]]) -> tuple[float, bool]:
 
 
 def visits_per_month(n_visits: int, first: date, last: date) -> float:
-    months = max(1.0, ((last - first).days + 1) / 30)
+    months = max(1.0, (last - first).days / 30.44)  # Oct 1 -> Oct 31 is one month
     return round(n_visits / months, 2)
 
 
