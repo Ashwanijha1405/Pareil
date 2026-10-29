@@ -18,32 +18,32 @@ def test_falls_back_with_fewer_than_three_bills():
 def test_origin_side_is_the_merchants_own_average_bill():
     s = estimate(origin_avg=225.0, target_tier=3, known=TIER3, per_month=4.0)
     assert s.origin_avg == 225.0
-    assert s.monthly_usd_full == 4.0 * (225.0 - 70.0)
+    assert s.monthly_full == 4.0 * (225.0 - 70.0)
     assert s.estimate is False
 
 
 def test_headline_is_half_of_full():
     s = estimate(origin_avg=225.0, target_tier=3, known=TIER3, per_month=4.0)
-    assert s.monthly_usd_half == s.monthly_usd_full / 2
+    assert s.monthly_half == s.monthly_full / 2
 
 
 def test_fallback_target_tier_marks_estimate():
     s = estimate(origin_avg=225.0, target_tier=3, known={}, per_month=2.0)
     assert s.estimate is True
-    assert s.monthly_usd_full == 2.0 * (225.0 - FALLBACK_AVG[3])
+    assert s.monthly_full == 2.0 * (225.0 - FALLBACK_AVG[3])
 
 
 def test_already_spending_like_lower_tier_saves_nothing():
     # Katz's in the sample: Qloo says tier 3, but the user's bills average $32.90.
     s = estimate(origin_avg=32.90, target_tier=3, known=TIER3, per_month=2.0)
-    assert (s.monthly_usd_full, s.monthly_usd_half) == (0.0, 0.0)
+    assert (s.monthly_full, s.monthly_half) == (0.0, 0.0)
     assert s.note == "already spending like a lower tier here"
 
 
 def test_saving_never_exceeds_monthly_spend_at_the_merchant():
     # Refunds make a tier average negative, so the raw gap would exceed the bill.
     s = estimate(origin_avg=50.0, target_tier=1, known={1: [-5.0, -5.0, -5.0]}, per_month=3.0)
-    assert s.monthly_usd_full == 3.0 * 50.0
+    assert s.monthly_full == 3.0 * 50.0
 
 
 @pytest.mark.parametrize("n, first, last, expected", [

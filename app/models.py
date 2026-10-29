@@ -12,9 +12,10 @@ TierSource = Literal["qloo", "inferred_from_user_spend", "inferred_fixed_bands"]
 
 class Transaction(BaseModel):
     date: date
-    merchant: str
-    amount_usd: float
-    city: str
+    merchant: str = Field(min_length=1)
+    amount: float
+    city: str = Field(min_length=1)
+    currency: str = "USD"
 
 
 class CleanMerchant(BaseModel):
@@ -101,8 +102,8 @@ class TierInfo(BaseModel):
 
 
 class Saving(BaseModel):
-    monthly_usd_full: float  # every visit swapped; kept in report.json, not headlined
-    monthly_usd_half: float  # 1 in 2 visits swapped; the headline number
+    monthly_full: float  # every visit swapped; kept in report.json, not headlined
+    monthly_half: float  # 1 in 2 visits swapped; the headline number
     origin_avg: float  # the user's own average bill at this merchant
     target_avg: float  # the user's average bill at the twin's tier (or fallback)
     visits_per_month: float

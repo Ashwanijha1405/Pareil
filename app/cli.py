@@ -1,32 +1,26 @@
 """python -m app.cli data/sample_transactions.csv [--out report.json]"""
 
 import argparse
-import csv
 import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pydantic import ValidationError
-
 from app.agent import Agent
 from app.config import load_settings
+from app.ingest import IngestError, parse_csv
 from app.models import Transaction
 
-TIER_SIGNS = {1: "$", 2: "$$", 3: "$$$", 4: "$$$$"}
+
+def signs(symbol: str) -> dict[int, str]:
+    return {t: symbol * t for t in range(1, 5)}
 
 
 def load_transactions(path: Path) -> list[Transaction]:
-    rows = []
-    with path.open(encoding="utf-8", newline="") as f:
-        for i, row in enumerate(csv.DictReader(f), start=2):
-            try:
-                rows.append(Transaction.model_validate(row))
-            except ValidationError as exc:
-                raise SystemExit(f"{path}:{i}: bad row: {exc.errors()[0]['loc']} {exc.errors()[0]['msg']}")
-    if not rows:
-        raise SystemExit(f"{path}: no transactions")
-    return rows
+    try:
+        return parse_csv(path.read_text(encoding="utf-8"))
+    except IngestError as exc:
+        raise SystemExit(f"{path}: {exc}")
 
 
 def cut(text: str, n: int) -> str:
@@ -34,11 +28,12 @@ def cut(text: str, n: int) -> str:
 
 
 def print_table(r: dict) -> None:
+    sym, TIER_SIGNS = r["symbol"], signs(r["symbol"])
     head = f"{'From':22} {'To':26} {'Tier':10} {'Rating':>6} {'Shared tags':28} {'Jacc':>5} {'Top driver':24} {'Save/mo*':>9}"
     print(head)
     print("-" * len(head))
     for sw in r["swaps"]:
-        saving = sw["saving"]["monthly_usd_half"] if sw["saving"] else 0.0
+        saving = sw["saving"]["monthly_half"] if sw["saving"] else 0.0
         rows = sw["picks"] or [None]
         for i, p in enumerate(rows):
             origin = cut(f"{sw['qloo_name']} {TIER_SIGNS[sw['tier']]}", 22) if i == 0 else ""
@@ -47,19 +42,20 @@ def print_table(r: dict) -> None:
                 continue
             tier = f"{TIER_SIGNS[sw['tier']]}->{TIER_SIGNS.get(p['price_level'], '?')}" + ("!" if p["label"] else "")
             driver = f"{p['drivers'][0]['place']} {p['drivers'][0]['percent']}%" if p.get("drivers") else "-"
-            save = f"${saving:.2f}" if i == 0 else ""
+            save = f"{sym}{saving:.2f}" if i == 0 else ""
             print(f"{origin:22} {cut(p['name'], 26):26} {tier:10} {p['rating']:>6} {cut(', '.join(p['shared']), 28):28} "
                   f"{p['jaccard']:>5} {cut(driver, 24):24} {save:>9}")
     print("* saving if you swap 1 in 2 visits, priced at the top pick's tier.  ! = two tiers down")
 
 
 def print_report(r: dict) -> None:
+    sym, TIER_SIGNS = r["symbol"], signs(r["symbol"])
     s = r["summary"]
     est = " (estimate)" if s["saving_is_estimate"] else ""
     print(f"\nPareil report  {r['period']['first']} -> {r['period']['last']}")
     print(f"{s['transactions']} transactions, {s['food_merchants']} food merchants, "
           f"{s['qloo_calls']} Qloo calls, LLM {'on' if s['llm_enabled'] else 'off'}")
-    print(f"If you swap 1 in 2 visits: ~${s['monthly_saving_half_usd']:.0f}/month{est}\n")
+    print(f"If you swap 1 in 2 visits: ~{sym}{s['monthly_saving_half']:.0f}/month{est}\n")
 
     print_table(r)
     print()
@@ -67,7 +63,7 @@ def print_report(r: dict) -> None:
         flags = [f"tier from {sw['tier_source']}"] if sw["tier_source"] != "qloo" else []
         flags += ["cleaned without LLM"] if sw["cleaned_by"] == "rules" else []
         flags += [sw["status"].replace("_", " ")] if sw["status"] != "ok" else []
-        print(f"== {sw['qloo_name']} {TIER_SIGNS[sw['tier']]}  {sw['visits']} visits, avg ${sw['avg_bill']:.2f}"
+        print(f"== {sw['qloo_name']} {TIER_SIGNS[sw['tier']]}  {sw['visits']} visits, avg {sym}{sw['avg_bill']:.2f}"
               f"  [{', '.join(c.replace('_', ' ') for c in sw['concepts'])}]" + (f"  ({'; '.join(flags)})" if flags else ""))
         print(f"   signals: {', '.join(sw['signals'])} | via {', '.join(sw['twins_path'])} | rating floor {sw['rating_floor']}"
               f" | {sw['candidates_before_dedupe']} candidates before dedupe")
@@ -79,8 +75,8 @@ def print_report(r: dict) -> None:
             print(f"   -> {p['name']}: {p['why']}" + ("" if p["why_source"] == "llm" else "  [template]"))
         if sw["saving"]:
             sv = sw["saving"]
-            print(f"   saving: {sv['visits_per_month']} visits/mo x (${sv['origin_avg']:.2f} - ${sv['target_avg']:.2f})"
-                  f" = ${sv['monthly_usd_full']:.2f} full, ${sv['monthly_usd_half']:.2f} at 1 in 2"
+            print(f"   saving: {sv['visits_per_month']} visits/mo x ({sym}{sv['origin_avg']:.2f} - {sym}{sv['target_avg']:.2f})"
+                  f" = {sym}{sv['monthly_full']:.2f} full, {sym}{sv['monthly_half']:.2f} at 1 in 2"
                   + (" (estimate)" if sv["estimate"] else "") + (f"  [{sv['note']}]" if sv["note"] else ""))
         if sw["branch_note"]:
             print(f"   note: {sw['branch_note']}")

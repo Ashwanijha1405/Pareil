@@ -16,6 +16,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from app import merchants, rank, resolve, savings, tiers, twins
+from app import currency as currency_mod
 from app.config import Settings
 from app.llm import LLM, LLMError
 from app.models import CleanMerchant, Place, RankedTwin, Resolution, TraceEntry, Transaction, Twin
@@ -152,6 +153,7 @@ class Agent:
 
     def run(self, txns: list[Transaction]) -> dict:
         first, last = min(t.date for t in txns), max(t.date for t in txns)
+        cur = currency_mod.BY_CODE[txns[0].currency]
         by_raw: dict[str, list[Transaction]] = defaultdict(list)
         for t in txns:
             by_raw[t.merchant].append(t)
@@ -192,7 +194,8 @@ class Agent:
                 needs_review.append(self._review(m, res.reason))
 
         amounts = {r.place.entity_id: m.amounts for m, r in resolved}
-        known, excluded = tiers.known_amounts(amounts, {r.place.entity_id: r.place.price_level for _, r in resolved})
+        known, excluded = tiers.known_amounts(amounts, {r.place.entity_id: r.place.price_level for _, r in resolved},
+                                              cur.bands)
         names = {r.place.entity_id: r.place.name for _, r in resolved}
         self._log("tier", "code", "ok", detail="tier averages from " + ", ".join(
             f"tier {t}: {len(a)} bills" for t, a in sorted(known.items()))
@@ -207,7 +210,7 @@ class Agent:
                 needs_review.append(self._review(m, "not analysed: Qloo call budget used up"))
                 continue
             origin = res.place
-            tier = tiers.assign(origin.price_level, m.avg_bill, known)
+            tier = tiers.assign(origin.price_level, m.avg_bill, known, cur.bands)
             self._log("tier", "code", tier.source, m.cm.name, detail=f"tier {tier.tier}")
             if tier.tier <= 1:
                 already_budget.append({"merchant": m.cm.name, "qloo_name": origin.name, "visits": m.visits,
@@ -246,7 +249,8 @@ class Agent:
             s["picks"] = [self._pick_dict(p) for p in picks]
             s["status"] = "ok" if len(picks) >= MIN_PICKS else (
                 "few_twins_after_dedupe" if s["candidates_before_dedupe"] >= MIN_PICKS else "few_twins")
-            s["saving"] = (savings.estimate(s["avg_bill"], picks[0].price_level, known, s["_per_month"]).model_dump()
+            s["saving"] = (savings.estimate(s["avg_bill"], picks[0].price_level, known, s["_per_month"],
+                                            cur.fallback_avg).model_dump()
                            if picks else None)
         self._log("dedupe", "code", "ok", detail=", ".join(
             f"{s['merchant']}: {s['candidates_before_dedupe']}->{len(s['picks'])}" for s in swaps))
@@ -259,11 +263,12 @@ class Agent:
         with_saving = [s["saving"] for s in swaps if s["saving"]]
         return {
             "period": {"first": first.isoformat(), "last": last.isoformat()},
+            "currency": cur.code, "symbol": cur.symbol,
             "summary": {
                 "transactions": len(txns), "food_merchants": len(group), "swaps": len(swaps),
                 "headline": "if you swap 1 in 2 visits",
-                "monthly_saving_half_usd": round(sum(v["monthly_usd_half"] for v in with_saving), 2),
-                "monthly_saving_full_usd": round(sum(v["monthly_usd_full"] for v in with_saving), 2),
+                "monthly_saving_half": round(sum(v["monthly_half"] for v in with_saving), 2),
+                "monthly_saving_full": round(sum(v["monthly_full"] for v in with_saving), 2),
                 "saving_is_estimate": any(v["estimate"] for v in with_saving),
                 "qloo_calls": self.client.calls, "llm_enabled": self.llm.enabled,
             },
@@ -281,7 +286,7 @@ class Agent:
                 groups[key] = Merchant(cm=cm, raws=[], amounts=[], dates=[])
             g = groups[key]
             g.raws.append(cm.raw)
-            g.amounts += [t.amount_usd for t in ts]
+            g.amounts += [t.amount for t in ts]
             g.dates += [t.date for t in ts]
             if cm.cleaned_by == "rules":
                 g.cm = g.cm.model_copy(update={"cleaned_by": "rules"})
@@ -445,7 +450,8 @@ class Agent:
                 "For each item write ONE sentence (max 30 words) on why 'swap' is a good cheaper alternative to 'origin'.\n"
                 "Write it the way a friend would say it. First say that top_driver (one of the user's own places) "
                 "is the main reason for the match, with its percent in brackets, e.g. 'Your [[X]] visits drive this one (39%)'. "
-                "Then name ONE shared_cuisine value. Mention no other user place.\n"
+                "Then name ONE shared_cuisine value. Mention no other user place. Drop a leading 'The' "
+                "after 'Your' (say 'Your Fatty Bao visits', not 'Your The Fatty Bao visits').\n"
                 "Use only facts in the item. Wrap every place name in [[double brackets]] and name only places in that item. "
                 "Do not mention drinks, beer, wine, coffee, takeout, delivery or reservations.\n"
                 'Reply with JSON only: {"items": [{"pick_id": "...", "why": "..."}]}\n\n'
@@ -468,7 +474,8 @@ class Agent:
         for pid, (origin, twin, drivers, out) in facts.items():
             why, problem = written.get(pid), "missing from LLM reply"
             if why:
-                problem = self._check_text(why, allowed_by_id[pid], every_name)
+                problem = self._check_text(why, allowed_by_id[pid], every_name,
+                                           tuple(concept_label(c) for c in twin.shared))
             if why and not problem:
                 out["why"], out["why_source"] = BRACKET_RE.sub(r"\1", why), "llm"
             else:
@@ -480,7 +487,7 @@ class Agent:
         self._log("explain", "code", "ok", detail=f"{len(facts) - rejected} LLM, {rejected} template")
 
     @staticmethod
-    def _check_text(why: str, allowed: set[str], every_name: set[str]) -> str:
+    def _check_text(why: str, allowed: set[str], every_name: set[str], cuisine: tuple[str, ...] = ()) -> str:
         """Returns '' if the text only names allowed places and avoids banned words, else the problem."""
         allowed_norm = {resolve.normalize(a) for a in allowed}
         for name in BRACKET_RE.findall(why):
@@ -491,7 +498,11 @@ class Agent:
             n = resolve.normalize(name)
             if n and n not in allowed_norm and f" {n} " in plain:
                 return f"mentions '{name}', which is not part of this pick"
-        lowered = why.lower()
+        # Banned words are checked outside place names and the item's own cuisine labels:
+        # "Third Wave Coffee" or a shared "Coffee Shop" concept is not a generic offering.
+        lowered = BRACKET_RE.sub(" ", why).lower()
+        for keep in sorted(allowed | set(cuisine), key=len, reverse=True):
+            lowered = lowered.replace(keep.lower(), " ")
         for word in BANNED_WORDS:
             if re.search(rf"\b{re.escape(word)}", lowered):
                 return f"uses generic word '{word}'"
