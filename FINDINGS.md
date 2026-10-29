@@ -46,6 +46,38 @@ Auth: `X-Api-Key` header. Endpoints used: `/search`, `/entities`, `/v2/insights`
 - **Currency is `usd` everywhere**, and there are no real price amounts. Prices are relative tiers only.
 - **Kit rules:** "Cache only what your project needs, respect the event quota, and make retry behavior bounded. Do not automate bulk scraping." The kit lists the `@qloo/qloo-harness` CLI/MCP as the supported surfaces. Direct REST calls worked, but confirm with organizers that they're allowed. The kit doesn't publish a rate-limit number.
 
+## Restaurant tag filter (2026-10-29, `scripts/probe_tags_signals.py`)
+
+`filter.tags` is in the docs: "comma-separated list of tag IDs". `operator.filter.tags` defaults to `union` (OR).
+The docs' only example ID (`urn:tag:genre:restaurant:Italian`) doesn't match the IDs the API returns. The IDs below come from observed responses.
+
+Tags used: `urn:tag:genre:place:restaurant,urn:tag:category:place:cafe,urn:tag:category:place:bakery`
+
+| Test (Smoke House Deli, Bengaluru) | HTTP | Food places | Carry a filter tag |
+|---|---|---|---|
+| T1 tags only, no price filter | 200 | 20/20 (salons, gyms, clinic gone) | 20/20 |
+| T2 tags + `filter.price_level.max=2` | 200 | 20/20 | 20/20 |
+
+- Every result, cafés and bakeries included, carries `urn:tag:genre:place:restaurant`. The café/bakery tags add nothing here, but they're harmless in a union.
+- **T1 still lets through places with no `price_level`** (about half of them). T2's price filter removes those. This is fine for twins, which always have a price cap. Origins can still lack a tier, so `tiers.py` needs its fallback.
+- One edge case: SMOOR (a chocolate shop) and Wishing Chair (a home-goods store with a café) pass because Qloo tags them `genre:place:restaurant`. They're acceptable as food places.
+
+## Multiple and weighted signals (2026-10-29)
+
+Docs: `signal.interests.entities` accepts "a comma-separated list of entity IDs" (GET). Per-entity weights are POST-only: "Weights must be greater than 0 and are relative."
+
+| Test (NYC: Carbone + Joe's Pizza + Katz's) | HTTP | Each input in per-result explainability | Avg influence on top 10 (Carbone / Joe's / Katz's) | Overlap with Carbone-only |
+|---|---|---|---|---|
+| S1 GET, comma-separated, equal weight | 200 | 20/20 for all 3 | 0.31 / 0.35 / 0.34 | 0/20 |
+| S2 POST, `{"entity": id, "weight": n}` (docs form) | **400** | - | - | - |
+| S2b POST, `{"id": id, "weight": n}`, weights 3/1/1 | 200 | 20/20 for all 3 | 0.41 / 0.30 / 0.29 | 2/20 |
+
+- **The docs are wrong about the key name.** The API error says: "objects with an id property". Use `id`, not `entity`.
+- **Equal weights wash out the origin.** S1 drifted to tier-1 casual places (Bobwhite, 2nd Ave Deli). They're "personal", but they're no longer twins of Carbone.
+- **Weights work.** At 3/1/1, Carbone becomes the strongest input and the results go back to Carbone-like places (Via Carota, Raoul's, Misi).
+- **Explainability names each input**, so a "why" can say which of the user's places drove a pick.
+- Decision for `twins.find`: POST with origin weight 3 and the 2 extra signals at weight 1. Still to verify: the filter params in a POST body (I'll check that in `twins.py`).
+
 ## Verdict
 
 | Result | Decision |
