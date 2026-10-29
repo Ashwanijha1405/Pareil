@@ -1,0 +1,10 @@
+# Vercel serves only the static frontend (outputDirectory: static). Keep the Python backend,
+# its data and tooling out of the upload so Vercel never tries to build or run them.
+app/
+tests/
+scripts/
+data/
+requirements.txt
+render.yaml
+.python-version
+FINDINGS.md
