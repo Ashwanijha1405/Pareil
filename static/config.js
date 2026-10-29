@@ -3,4 +3,4 @@
 // Production: the Render service. Demos never call it; only "Run live" and CSV uploads do.
 window.PAREIL_API = ["localhost", "127.0.0.1"].includes(location.hostname)
   ? `http://${location.hostname}:8000`
-  : "https://REPLACE-WITH-RENDER-SERVICE.onrender.com";
+  : "https://pareil-api.onrender.com";

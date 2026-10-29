@@ -57,9 +57,9 @@ CORS allows only `ALLOWED_ORIGINS` plus `http://localhost` / `http://127.0.0.1` 
 ### Frontend on Vercel
 
 Import the repo with no build step; `vercel.json` serves `static/` and sets the CSP and cache
-headers (`.vercelignore` keeps the Python code out of the upload). Before deploying, put the Render
-URL in `static/config.js`, and narrow `connect-src` in `vercel.json` from `https://*.onrender.com`
-to that URL.
+headers (`.vercelignore` keeps the Python code out of the upload). The API URL
+(`https://pareil-api.onrender.com`) lives in `static/config.js` and in `connect-src` in
+`vercel.json`; change both if the Render service moves.
 
 ### Run locally
 
