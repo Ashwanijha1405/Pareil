@@ -1,95 +1,192 @@
-// Pareil UI: start -> running (live SSE trace) -> results. No framework, no build step.
-// All data from the API goes into the DOM through textContent, never innerHTML.
+// Pareil UI (dark): preloader -> landing -> running (live SSE trace) -> results.
+// No framework, no build step. API data reaches the DOM only through textContent.
 "use strict";
 
-const TILE_COLORS = [
-  ["#26302A", "#C9D3C6"], ["#2B2723", "#D9D2C4"], ["#23302A", "#C9D3C6"],
-  ["#2E2A30", "#D6D0DA"], ["#34312B", "#D9D2C4"],
-];
-const STEP_TITLES = {
-  clean: "Cleaning merchant names", resolve: "Finding the place in Qloo", tier: "Price tier",
-  twins: "Asking Qloo for taste twins", rank: "Quality filters", recover: "Recovery",
-  dedupe: "One twin per merchant", explain: "Writing the why",
-};
-const ICONS = {
-  check: "M20 6L9 17l-5-5",
-  retry: "M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.3L3 16M3 21v-5h5",
-  warn: "M12 8v5M12 16.5v.5M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z",
-};
-
 const $ = (id) => document.getElementById(id);
-const state = { report: null, demo: null, filter: "all", query: "", heroIndex: 0, source: null };
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const state = { report: null, demo: null, filter: "all", query: "", heroIndex: 0, runs: 0, es: null };
 
 function h(tag, props = {}, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) {
     if (v === undefined || v === null || v === false) continue;
     if (k === "class") el.className = v;
-    else if (k === "style") for (const [p, val] of Object.entries(v)) el.style.setProperty(p, val);
     else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v === true ? "" : v);
   }
   for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) el.append(c.nodeType ? c : String(c));
   return el;
 }
-function icon(path, cls = "") {
+function icon(paths, cls = "") {
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("aria-hidden", "true");
   if (cls) svg.setAttribute("class", cls);
-  const p = document.createElementNS(ns, "path");
-  p.setAttribute("d", path);
-  svg.append(p);
+  for (const d of [].concat(paths)) {
+    const p = document.createElementNS(ns, "path");
+    p.setAttribute("d", d);
+    svg.append(p);
+  }
   return svg;
 }
+const ICON = {
+  check: "M20 6L9 17l-5-5",
+  retry: ["M21 12a9 9 0 1 1-3-6.7", "M21 4v5h-5"],
+  warn: ["M12 8v5", "M12 16.5v.5", "M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"],
+  arrow: "M5 12h14M13 6l6 6-6 6",
+  down: "M12 5v14M6 13l6 6 6-6",
+  x: "M18 6L6 18M6 6l12 12",
+};
 
-// ---- formatting --------------------------------------------------------------------------
-const sym = () => state.report.symbol;
-const tiers = (n) => (n ? sym().repeat(n) : "?");
-function money(v, digits = 0) {
-  const locale = state.report.currency === "INR" ? "en-IN" : "en-US";
-  return sym() + Number(v).toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+// ---- formatting ---------------------------------------------------------------------------
+const symOf = (r) => r.symbol;
+const tiers = (r, n) => (n ? symOf(r).repeat(n) : "?");
+function money(r, v, digits = 0) {
+  const locale = r.currency === "INR" ? "en-IN" : "en-US";
+  return symOf(r) + Number(v).toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
-function hhmm(iso) {
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
+const hhmm = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 const shortName = (name) => name.split(/ [-|·] | \| /)[0];
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-// ---- states ------------------------------------------------------------------------------
-function show(id) {
-  for (const s of ["start", "running", "results"]) $(s).hidden = s !== id;
-  window.scrollTo({ top: 0 });
+// ---- preloader ----------------------------------------------------------------------------
+// First page load: shown until fonts + demo status are ready, at most 1.2 s (never forces a wait).
+// Runs: the first run of the session shows it until the first SSE step; later runs only if
+// nothing has arrived after 1 s.
+const preloader = {
+  shownAt: performance.now(),
+  visible: true,
+  timer: null,
+  show(text) {
+    clearTimeout(this.timer);
+    const el = $("preloader");
+    $("pl-status").textContent = text || "reading the taste graph";
+    el.classList.remove("play");
+    void el.offsetWidth; // restart the CSS animations
+    el.classList.add("play");
+    el.classList.remove("hide");
+    document.body.classList.add("loading");
+    this.visible = true;
+    this.shownAt = performance.now();
+  },
+  hide(minMs = REDUCED ? 0 : 450) {
+    clearTimeout(this.timer);
+    const wait = Math.max(0, minMs - (performance.now() - this.shownAt));
+    this.timer = setTimeout(() => {
+      $("preloader").classList.add("hide");
+      document.body.classList.remove("loading");
+      this.visible = false;
+    }, wait);
+  },
+  showAfter(ms, text) {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.show(text), ms);
+  },
+};
+
+// ---- views --------------------------------------------------------------------------------
+function show(view) {
+  for (const v of ["landing", "running", "results"]) $(v).hidden = v !== view;
+  document.querySelectorAll(".nav-pills a").forEach((a) => a.toggleAttribute("aria-current", false));
+  if (view === "landing") document.querySelector('.nav-pills a[href="#top"]').setAttribute("aria-current", "true");
+  window.scrollTo({ top: 0, behavior: "instant" });
 }
 
+function showError(message) {
+  show("landing");
+  const visible = [...document.querySelectorAll("[data-error]")];
+  visible.forEach((el) => { el.textContent = message; el.hidden = false; });
+  document.getElementById("demo").scrollIntoView({ block: "center" });
+  setButtons(false);
+}
+function clearErrors() {
+  document.querySelectorAll("[data-error]").forEach((el) => (el.hidden = true));
+}
+function setButtons(busy) {
+  document.querySelectorAll("[data-demo]").forEach((b) => (b.disabled = busy));
+}
+
+// ---- landing: demo status + live sample card ---------------------------------------------
 async function loadDemos() {
   try {
     const demos = await (await fetch("/api/demos")).json();
-    for (const d of demos) {
-      const el = document.querySelector(`[data-status="${d.id}"]`);
-      if (el) el.textContent = d.ready ? `Instant replay · ran at ${hhmm(d.ran_at)}` : "Runs live (about a minute)";
-    }
+    const ready = demos.filter((d) => d.ready);
+    $("demo-status").textContent = ready.length
+      ? `Demos open instantly as a replay of the run at ${hhmm(ready[0].ran_at)}; “Run live” calls Qloo again.`
+      : "Demos run live right now (about a minute) while the instant replays warm up.";
+    const nyc = demos.find((d) => d.id === "nyc");
+    if (nyc && nyc.ready) fillSampleCard();
+    else setTimeout(loadDemos, 15000);
   } catch {
-    document.querySelectorAll("[data-status]").forEach((el) => (el.textContent = "Start"));
+    $("demo-status").textContent = "";
   }
 }
 
+async function fetchReplay(demo) {
+  const res = await fetch("/api/runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ demo }) });
+  const data = await res.json();
+  if (!res.ok || !data.replay) return null; // never start a live run just to decorate the page
+  await new Promise((ok) => {
+    const es = new EventSource(`/api/runs/${data.run_id}/events`);
+    const end = () => { es.close(); ok(); };
+    es.addEventListener("done", end);
+    es.addEventListener("error", end);
+  });
+  const r = await fetch(`/api/runs/${data.run_id}/report`);
+  return r.status === 200 ? r.json() : null;
+}
+
+async function fillSampleCard() {
+  let report;
+  try { report = await fetchReplay("nyc"); } catch { return; }
+  const s = report && topSwaps(report)[0];
+  if (!s) return;
+  const p = s.picks[0];
+  const card = $("sample-card");
+  card.classList.add("updating");
+  setTimeout(() => {
+    card.querySelector(".label").textContent = "Real swap · NYC demo";
+    $("sc-city").textContent = "New York";
+    $("sc-from").textContent = shortName(s.qloo_name);
+    $("sc-from-tier").textContent = tiers(report, s.tier);
+    $("sc-from-meta").textContent = `${plural(s.visits, "visit")} this month · avg ${money(report, s.avg_bill)} a visit · rated ${s.rating.toFixed(1)}`;
+    $("sc-down").textContent = p.tiers_down >= 2 ? "two tiers down" : "one tier down";
+    $("sc-to").textContent = p.name;
+    $("sc-to-tier").textContent = tiers(report, p.price_level);
+    $("sc-to-meta").textContent = [`Rated ${p.rating}`, ...p.shared.slice(0, 2)].join(" · ");
+    $("sc-why").replaceChildren(...driverSentence(p));
+    $("sc-save").textContent = `≈ ${money(report, s.saving.monthly_half)}`;
+    $("sc-note").textContent = `From the NYC demo run at ${hhmm(report.ran_at)} · if you swap 1 in 2 visits${s.saving.estimate ? " · estimate" : ""}`;
+    card.classList.remove("updating");
+  }, REDUCED ? 0 : 400);
+}
+
+function driverSentence(p) {
+  const d = (p.drivers || []).slice(0, 2);
+  if (!d.length) return ["A Qloo taste match for your places."];
+  const parts = ["Matched on your taste for "];
+  d.forEach((x, i) => {
+    if (i) parts.push(" and ");
+    parts.push(h("strong", {}, shortName(x.place)), ` (${x.percent}%)`);
+  });
+  parts.push(".");
+  return parts;
+}
+
+// ---- starting runs ------------------------------------------------------------------------
 async function startRun(body, headers, label) {
-  $("start-error").hidden = true;
+  clearErrors();
+  setButtons(true);
   let res, data;
   try {
     res = await fetch("/api/runs", { method: "POST", headers, body });
     data = await res.json();
   } catch {
-    return startError("Couldn't reach Pareil. Check your connection and try again.");
+    return showError("Couldn't reach Pareil. Check your connection and try again.");
   }
-  if (!res.ok) return startError(data.error || `Request failed (${res.status}).`);
+  if (!res.ok) return showError(data.error || `Request failed (${res.status}).`);
   follow(data.run_id, label);
-}
-function startError(message) {
-  show("start");
-  $("start-error").textContent = message;
-  $("start-error").hidden = false;
 }
 
 function runDemo(demo, live = false) {
@@ -100,37 +197,43 @@ function runDemo(demo, live = false) {
 
 function uploadFile(file) {
   state.demo = null;
-  if (file.size > 200_000) return startError("File too large: the limit is 200 KB.");
+  if (!/\.csv$/i.test(file.name) && file.type && !/csv|text|excel/i.test(file.type)) {
+    return showError("That doesn't look like a CSV. Export your statement as .csv and try again.");
+  }
+  if (file.size > 200_000) return showError("File too large: the limit is 200 KB (about 300 rows).");
   startRun(file, { "Content-Type": "text/csv" }, file.name);
 }
 
-// ---- running: live trace -----------------------------------------------------------------
+// ---- running: live trace ------------------------------------------------------------------
 function follow(runId, label) {
+  state.runs += 1;
+  if (state.es) state.es.close();
+  if (state.runs === 1) preloader.show("starting the agent");
+  else preloader.showAfter(1000, "waiting for the agent");
+
   show("running");
   $("timeline").replaceChildren();
   $("run-error").hidden = true;
-  $("run-back").hidden = true;
-  $("run-title").textContent = "Working on it";
+  $("run-title").textContent = "Agent trace";
   $("run-sub").textContent = label;
-  let count = 0;
+  let first = true;
+  const firstEvent = () => { if (first) { first = false; preloader.hide(); } };
 
   const es = new EventSource(`/api/runs/${runId}/events`);
+  state.es = es;
   es.addEventListener("start", (e) => {
     const meta = JSON.parse(e.data);
-    $("run-sub").textContent = meta.replayed_at
-      ? `${meta.source} · replaying the run from ${hhmm(meta.replayed_at)}`
-      : `${meta.source} · live: calling Qloo now`;
+    $("run-sub").textContent = meta.replayed_at ? `replay of ${hhmm(meta.replayed_at)} run` : "live · calling Qloo";
   });
   es.addEventListener("step", (e) => {
-    count += 1;
-    $("run-count").textContent = `${count} step${count === 1 ? "" : "s"}`;
+    firstEvent();
     const li = stepItem(JSON.parse(e.data));
     $("timeline").append(li);
     li.scrollIntoView({ block: "nearest" });
   });
   es.addEventListener("done", async () => {
     es.close();
-    $("run-title").textContent = "Done";
+    firstEvent();
     try {
       const res = await fetch(`/api/runs/${runId}/report`);
       if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`);
@@ -141,49 +244,50 @@ function follow(runId, label) {
   });
   es.addEventListener("error", (e) => {
     es.close();
-    let message = "The connection to the run was lost.";
+    firstEvent();
+    let message = "The connection to the run was lost. Go back and try again.";
     try { if (e.data) message = JSON.parse(e.data).error; } catch {}
     runError(message);
   });
 }
 function runError(message) {
-  $("run-title").textContent = "Something went wrong";
+  setButtons(false);
+  $("run-title").textContent = "Run stopped";
   $("run-error").textContent = message;
   $("run-error").hidden = false;
-  $("run-back").hidden = false;
 }
 
+const STEP_TEXT = {
+  clean: "Cleaned merchant names", resolve: "Matched on Qloo", tier: "Price tier",
+  twins: "Found taste twins", rank: "Ranked · rating floor applied", recover: "Recovery",
+  dedupe: "One twin per merchant", explain: "Explanations · names verified",
+};
 function stepItem(ev) {
-  const bad = ["error", "needs_review", "rejected", "budget_exhausted", "iteration_cap"].includes(ev.status);
-  const retry = ["partial", "fallback"].includes(ev.status) || ev.detail.includes("decided by fallback rule");
+  const warn = ["error", "needs_review", "rejected", "budget_exhausted", "iteration_cap"].includes(ev.status);
   const recover = ev.step === "recover";
-  let title = STEP_TITLES[ev.step] || ev.step;
-  let detail = ev.detail;
-  if (recover && ev.tool === "code") {
-    title = ev.status === "give_up" && /rated below/.test(ev.detail)
-      ? "Hard to beat: gave up on rating"
-      : `Recovery: ${ev.status.replaceAll("_", " ")}`;
-  } else if (ev.status === "cached") {
-    detail += " (cached)";
-  }
-  const kind = bad ? "warn" : retry ? "retry" : "check";
-  return h("li", { class: `step ${kind}${recover ? " recover" : ""}` },
-    h("span", { class: "step-icon" }, icon(ICONS[kind])),
-    h("div", {},
-      h("div", { class: "step-title" }, title, ev.target ? ` · ${ev.target}` : ""),
-      h("div", { class: "step-detail" }, detail)),
-    h("span", { class: "step-ms" }, ev.ms ? `${(ev.ms / 1000).toFixed(1)} s` : ""));
+  const hard = recover && ev.status === "give_up" && /rated below/.test(ev.detail);
+  const retry = recover || ["partial", "fallback"].includes(ev.status) || /fallback rule/.test(ev.detail);
+
+  let title = [STEP_TEXT[ev.step] || ev.step];
+  if (hard) title = ["Hard to beat: gave up on rating"];
+  else if (recover && ev.tool === "code") title = ["Recovery → agent chose ", h("span", { class: "brass" }, ev.status)];
+  else if (recover) title = ["Recovery · model choosing an action"];
+  const main = h("span", { class: "t-text" }, ...title, ev.target ? ` · ${ev.target}` : "",
+    h("span", { class: "t-sub" }, ev.status === "cached" ? `${ev.detail} (cached)` : ev.detail));
+
+  const kind = warn ? "warn" : retry ? "retry" : "check";
+  return h("li", { class: `t-new${retry && !warn ? " t-retry" : ""}${hard ? " t-hard" : ""}` },
+    icon(ICON[kind], `ic-${kind}`), main,
+    h("span", { class: "t-ms" }, ev.ms ? `${(ev.ms / 1000).toFixed(1)}s` : ""));
 }
 
-// ---- results -----------------------------------------------------------------------------
-function swapsWithPicks() {
-  return state.report.swaps.filter((s) => s.picks.length);
-}
-function heroSwap() {
-  return [...swapsWithPicks()].sort((a, b) => b.saving.monthly_half - a.saving.monthly_half)[0] || null;
+// ---- results ------------------------------------------------------------------------------
+function topSwaps(r) {
+  return r.swaps.filter((s) => s.picks.length).sort((a, b) => b.saving.monthly_half - a.saving.monthly_half);
 }
 
 function renderResults(report) {
+  setButtons(false);
   state.report = report;
   state.heroIndex = 0;
   state.filter = "all";
@@ -191,200 +295,182 @@ function renderResults(report) {
   $("q").value = "";
   document.querySelectorAll("[data-filter]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.filter === "all")));
 
-  const first = new Date(report.period.first + "T00:00:00");
-  $("month-chip").textContent = first.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const [title, sub] = report.source.split(" · ");
-  $("data-title").textContent = title;
-  $("data-sub").textContent = sub || "";
-  $("data-badge").textContent = report.currency === "INR" ? "BL" : title.startsWith("NYC") ? "NY" : "You";
-  $("foot-source").textContent = report.source;
-
-  $("replay-bar").hidden = !report.replayed_at;
+  $("data-chip").textContent = report.source;
+  $("month-chip").textContent = new Date(report.period.first + "T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  $("replay").hidden = !report.replayed_at;
   if (report.replayed_at) {
-    $("replay-text").textContent = `Replayed from a run at ${hhmm(report.replayed_at)}. Nothing was called just now.`;
+    $("replay-text").textContent = `Replayed from a run at ${hhmm(report.replayed_at)}`;
     $("run-live").hidden = !state.demo;
   }
 
-  renderTop();
-  renderWhere();
+  const sm = report.summary;
+  $("headline-num").replaceChildren(`~${money(report, sm.monthly_saving_half)}`, h("small", {}, " / month"));
+  $("headline-note").textContent = (sm.saving_is_estimate ? "Estimate · some tiers use a fallback average. " : "Estimate from your own bills. ")
+    + `${plural(topSwaps(report).reduce((t, s) => t + s.picks.length, 0), "swap")} for ${plural(topSwaps(report).length, "place")} · rating floor: never lower.`;
+  $("res-foot").textContent = `${report.source} · ${sm.qloo_calls} Qloo calls · places and ratings from Qloo · savings are estimates from your own spending`;
+
   renderHero();
-  renderSummary();
-  renderMore();
+  renderGrid();
+  renderLists();
   renderHow();
   show("results");
 }
 
-function tileColor(i) {
-  const [bg, soft] = TILE_COLORS[i % TILE_COLORS.length];
-  return { background: bg, "--tile-soft": soft };
-}
-function mapsUrl(p) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.name} ${p.address}`)}`;
-}
-
-function renderTop() {
-  const top = [...swapsWithPicks()].sort((a, b) => b.saving.monthly_half - a.saving.monthly_half).slice(0, 2);
-  $("top-swaps").replaceChildren(...top.map((s, i) => {
-    const p = s.picks[0];
-    return h("a", { class: "dark top-tile", href: mapsUrl(p), target: "_blank", rel: "noopener", style: tileColor(i) },
-      h("div", { class: "tile-kicker" }, `For ${shortName(s.qloo_name)}`),
-      h("div", { class: "tile-row" },
-        h("span", { class: "tile-name" }, p.name),
-        h("span", { class: "tile-meta" }, `${tiers(s.tier)} → ${tiers(p.price_level)}`)),
-      h("div", { class: "tile-foot" }, `≈ ${money(s.saving.monthly_half, 2)} / mo · rated ${p.rating}`));
-  }));
-  if (!top.length) $("top-swaps").append(h("p", { class: "muted small" }, "No swaps passed the quality filters."));
-}
-
-const STATUS_LABEL = { swap: "Swap", hard_to_beat: "Hard to beat", no_match: "No match", budget: "", review: "Needs review", skipped: "Skipped" };
-const WHERE_LIMIT = 8;
-function renderWhere(all = false) {
-  const rows = state.report.where_you_spent;
-  const shown = all ? rows : rows.slice(0, WHERE_LIMIT);
-  $("where").replaceChildren(...shown.map((w) => {
-    const sub = w.status === "swap" ? `${w.visits} visit${w.visits === 1 ? "" : "s"} · avg ${money(w.avg_bill)}` : w.note;
-    const status = w.status === "budget"
-      ? h("span", { class: "status", role: "img", "aria-label": "Budget-friendly" }, icon("M20 6L9 17l-5-5"))
-      : h("span", { class: `status ${w.status}` }, STATUS_LABEL[w.status]);
-    return h("li", { title: w.reason || null },
-      h("span", { class: "initial", "aria-hidden": "true" }, shortName(w.name).replace(/^the /i, "").charAt(0).toUpperCase()),
-      h("span", { class: "where-text" }, h("span", { class: "where-name" }, shortName(w.name)), h("span", { class: "where-sub" }, sub)),
-      status);
-  }));
-  const more = rows.length - shown.length;
-  if (more > 0) {
-    $("where").append(h("li", { class: "where-more" },
-      h("button", { type: "button", class: "btn-small", onclick: () => renderWhere(true) }, `Show all ${rows.length}`)));
-  }
-}
-
 function renderHero() {
-  const s = heroSwap();
-  const hero = $("hero");
+  const r = state.report;
+  const s = topSwaps(r)[0];
+  const box = $("res-hero");
   if (!s) {
-    const budget = state.report.already_budget.length;
-    hero.replaceChildren(h("p", { class: "hero-empty" },
-      budget ? "You're already eating on a budget. Nothing cheaper beat your places." : "No swaps passed the quality filters."));
+    box.replaceChildren(h("p", { class: "empty-hero" },
+      r.already_budget.length ? "You're already eating on a budget. Nothing cheaper beat your places." : "No swap passed the quality filters for this month."));
     return;
   }
   const pool = [...s.picks, ...s.alternates];
   const p = pool[state.heroIndex];
   const last = state.heroIndex >= pool.length - 1;
-  const chips = ["Biggest saving", ...p.shared.slice(0, 2), `${tiers(s.tier)} → ${tiers(p.price_level)}`];
-  if (p.label) chips.push(p.label);
+  const origin = shortName(s.qloo_name);
 
-  hero.replaceChildren(
-    h("div", { class: "hero-ghost", "aria-hidden": "true" }, p.name),
-    h("div", { class: "hero-chips" }, chips.map((c) => h("span", { class: "hero-chip" }, c))),
-    h("div", { class: "hero-body" },
-      h("div", { class: "hero-main" },
-        h("p", { class: "hero-instead" }, `Instead of ${shortName(s.qloo_name)}`),
-        h("h1", { class: "hero-name" }, p.name),
-        h("p", { class: "hero-why" }, p.why),
-        h("p", { class: "hero-rating" }, `Rated ${p.rating} vs ${shortName(s.qloo_name)}'s ${s.rating.toFixed(1)}`),
-        h("div", { class: "hero-actions" },
-          h("a", { class: "btn-light", href: mapsUrl(p), target: "_blank", rel: "noopener" },
-            icon("M5 12h14M13 6l6 6-6 6"), "See the swap"),
-          h("button", {
-            type: "button", class: "btn-outline", disabled: last,
-            "aria-label": last ? "No other twins for this place" : `Not my vibe: show another twin for ${shortName(s.qloo_name)}`,
-            onclick: () => { state.heroIndex += 1; renderHero(); renderMore(); $("hero").querySelector(".btn-outline")?.focus(); },
-          }, icon("M18 6L6 18M6 6l12 12"), last ? "No more twins" : "Not my vibe"))),
-      h("div", { class: "hero-save" },
-        h("div", { class: "hero-amount" }, `≈ ${money(s.saving.monthly_half)}`),
-        h("div", { class: "hero-save-sub" }, `a month, if you swap 1 in 2 visits${s.saving.estimate ? " (estimate)" : ""}`),
-        h("div", { class: "dots", "aria-hidden": "true" }, pool.map((_, i) => h("span", { class: i === state.heroIndex ? "on" : "" }))))));
+  const copy = h("div", { class: "res-hero-copy" },
+    h("p", { class: "eyebrow" }, `Biggest saving · ${state.heroIndex + 1} of ${pool.length}`),
+    h("h2", { class: "h2" }, `Instead of ${origin}, `, h("span", { class: "em-brass" }, p.name), "."),
+    h("div", { class: "chip-row" }, [...p.shared.slice(0, 3), p.label].filter(Boolean).map((c) => h("span", { class: "chip" }, c))),
+    h("p", { class: "body" }, p.why),
+    h("div", { class: "cta-row" },
+      h("a", { class: "btn-brass", href: mapsUrl(p), target: "_blank", rel: "noopener" }, "See the swap", icon(ICON.arrow)),
+      h("button", {
+        type: "button", class: "btn-line", disabled: last, id: "not-my-vibe",
+        "aria-label": last ? `No other twins for ${origin}` : `Not my vibe: show another twin for ${origin}`,
+        onclick: () => { state.heroIndex += 1; renderHero(); renderGrid(); $("not-my-vibe").focus(); },
+      }, icon(ICON.x), last ? "No more twins" : "Not my vibe")));
+
+  const card = h("div", { class: "swapcard" },
+    h("div", { class: "swapcard-head" }, h("span", { class: "label" }, "Your swap"), h("span", { class: "pill-line" }, r.currency === "INR" ? "Bengaluru" : "New York")),
+    h("div", { class: "place" },
+      h("div", { class: "place-row" }, h("span", { class: "place-name" }, origin), h("span", { class: "tiers muted-tiers" }, tiers(r, s.tier))),
+      h("p", { class: "place-meta" }, `${plural(s.visits, "visit")} · avg ${money(r, s.avg_bill)} a visit · rated ${s.rating.toFixed(1)}`)),
+    h("div", { class: "tier-divider" }, h("span"), icon(ICON.down), h("b", {}, p.tiers_down >= 2 ? "two tiers down" : "one tier down"), h("span")),
+    h("div", { class: "place place-twin" },
+      h("div", { class: "place-row" }, h("span", { class: "place-name" }, p.name), h("span", { class: "tiers brass" }, tiers(r, p.price_level))),
+      h("p", { class: "place-meta" }, `Rated ${p.rating} vs ${s.rating.toFixed(1)}`),
+      h("p", { class: "place-why" }, ...driverSentence(p))),
+    h("div", { class: "swapcard-foot" },
+      h("div", {}, h("div", { class: "label-plain" }, "Estimated saving"),
+        h("div", { class: "saving" }, `≈ ${money(r, s.saving.monthly_half)}`, h("small", {}, " / month"))),
+      h("span", { class: "fine-note" }, `if you swap 1 in 2 visits${s.saving.estimate ? " · estimate" : ""}`)));
+
+  box.replaceChildren(copy, card);
 }
 
-function renderSummary() {
-  const sm = state.report.summary;
-  const withPicks = swapsWithPicks();
-  const n = withPicks.reduce((t, s) => t + s.picks.length, 0);
-  $("sum-save").textContent = `≈ ${money(sm.monthly_saving_half)} / mo`;
-  $("sum-est").textContent = sm.saving_is_estimate ? "estimate · some tiers use a fallback average" : "from your own bills";
-  $("sum-swaps").textContent = `${n} for ${withPicks.length} place${withPicks.length === 1 ? "" : "s"}`;
+function mapsUrl(p) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.name} ${p.address}`)}`;
 }
-
-function matchesQuery(...texts) {
+function matches(...texts) {
   const q = state.query.trim().toLowerCase();
   return !q || texts.some((t) => t && t.toLowerCase().includes(q));
 }
 
-function renderMore() {
-  const hero = heroSwap();
+function renderGrid() {
+  const r = state.report;
+  const hero = topSwaps(r)[0];
   const heroPick = hero ? [...hero.picks, ...hero.alternates][state.heroIndex] : null;
-  let tiles = [];
+  const tiles = [];
+
   if (state.filter === "budget") {
-    tiles = state.report.already_budget
-      .filter((a) => matchesQuery(a.qloo_name, a.merchant))
-      .map((a, i) => h("div", { class: "dark more-tile", style: tileColor(i) },
-        h("span", { class: "more-chip" }, "Already budget-friendly"),
-        h("span", {}, h("span", { class: "tile-name" }, shortName(a.qloo_name)),
-          h("span", { class: "more-sub" }, `${a.visits} visits · avg ${money(a.avg_bill)} · ${tiers(a.tier)}`))));
+    for (const a of r.already_budget) {
+      if (!matches(a.qloo_name, a.merchant)) continue;
+      tiles.push(h("div", { class: "swap-tile" },
+        h("span", { class: "chip" }, "Already budget-friendly"),
+        h("p", { class: "tile-name" }, shortName(a.qloo_name)),
+        h("div", { class: "tier-change" }, h("span", { class: "brass" }, tiers(r, a.tier))),
+        h("p", { class: "tile-text" }, `${plural(a.visits, "visit")} · avg ${money(r, a.avg_bill)}`)));
+    }
   } else {
-    let i = 0;
-    for (const s of swapsWithPicks()) {
+    for (const s of topSwaps(r)) {
       if (state.filter !== "all" && s.kind !== state.filter) continue;
       for (const p of s.picks) {
-        if (p === heroPick || !matchesQuery(p.name, s.qloo_name, s.merchant, ...p.shared)) continue;
-        tiles.push(h("a", { class: "dark more-tile", href: mapsUrl(p), target: "_blank", rel: "noopener", style: tileColor(i++) },
-          h("span", { class: "more-chip" }, p.shared.slice(0, 2).join(" · ") || "Taste match"),
-          h("span", {}, h("span", { class: "tile-name" }, p.name),
-            h("span", { class: "more-sub" }, `for ${shortName(s.qloo_name)} · ${tiers(s.tier)} → ${tiers(p.price_level)} · ${p.rating}`))));
+        if (p === heroPick || !matches(p.name, s.qloo_name, s.merchant, ...p.shared)) continue;
+        tiles.push(h("a", { class: "swap-tile", href: mapsUrl(p), target: "_blank", rel: "noopener",
+          "aria-label": `${p.name}, instead of ${shortName(s.qloo_name)}. Opens a map.` },
+          h("span", { class: "chip" }, p.shared.slice(0, 2).join(" · ") || "Taste match"),
+          h("div", {}, h("p", { class: "tile-name" }, p.name)),
+          h("p", { class: "tile-meta" }, `for ${shortName(s.qloo_name)}`, p.label ? h("span", { class: "tag-two" }, ` · ${p.label}`) : ""),
+          h("div", { class: "tier-change" }, h("s", {}, tiers(r, s.tier)), icon(ICON.arrow), h("span", { class: "brass" }, tiers(r, p.price_level))),
+          h("p", { class: "tile-text" }, `Rating ${s.rating.toFixed(1)} → ${p.rating}`),
+          h("div", { class: "tile-save" }, `≈ ${money(r, s.saving.monthly_half)}`,
+            h("small", {}, ` / month at ${shortName(s.qloo_name)}`))));
       }
     }
   }
-  $("more-grid").replaceChildren(...tiles);
-  $("more-empty").hidden = tiles.length > 0;
+  $("swap-grid").replaceChildren(...tiles);
+  $("swap-empty").hidden = tiles.length > 0;
+}
+
+function renderLists() {
+  const rows = state.report.where_you_spent;
+  const fill = (id, statuses, sub) => {
+    const items = rows.filter((w) => statuses.includes(w.status));
+    $(id).replaceChildren(...(items.length
+      ? items.map((w) => h("li", { title: w.reason || null }, shortName(w.name), h("span", {}, sub(w))))
+      : [h("li", { class: "none" }, "None")]));
+  };
+  const r = state.report;
+  fill("list-hard", ["hard_to_beat", "no_match"], (w) => w.note);
+  fill("list-budget", ["budget"], (w) => `${plural(w.visits, "visit")} · avg ${money(r, w.avg_bill)}`);
+  fill("list-review", ["review"], (w) => w.note);
+  fill("list-skipped", ["skipped"], (w) => `${plural(w.visits, "visit")} · ${money(r, w.avg_bill * w.visits)} total`);
 }
 
 function renderHow() {
   const calls = state.report.trace.filter((t) => t.meta && t.meta.endpoint);
-  $("how-count").textContent = `· ${calls.length} Qloo calls`;
+  $("how-count").textContent = `${calls.length} Qloo calls`;
   $("how-list").replaceChildren(...calls.map((t) => {
     const m = t.meta;
     const params = [];
-    if (m.query) params.push(`query=${m.query}`);
+    if (m.query) params.push(`query="${m.query}"`);
     if (m["filter.location"]) params.push(`filter.location=${m["filter.location"]}`);
-    if (m["filter.location.query"]) params.push(`filter.location.query=${m["filter.location.query"]}`);
-    if (m["filter.price_level.min"] !== undefined) params.push(`price_level min=max=${m["filter.price_level.max"]}`);
+    if (m["filter.location.query"]) params.push(`filter.location.query="${m["filter.location.query"]}"`);
+    if (m["filter.price_level.max"] !== undefined) params.push(`price_level.min=max=${m["filter.price_level.max"]}`);
     if (m["filter.tags"]) params.push(`filter.tags=${m["filter.tags"].map((x) => x.split(":").pop()).join(",")}`);
-    if (m.signals) params.push(`signals=${m.signals.map((s) => `${s.name} ×${s.weight}`).join(", ")}`);
-    if (m["feature.explainability"]) params.push("explainability=on");
-    return h("li", { class: "how-item" },
-      h("div", { class: "how-top" },
-        h("span", { class: "how-endpoint" }, `${m.endpoint} · ${t.target}`),
-        h("span", { class: "muted" }, `${t.status} · ${t.ms} ms`)),
-      h("p", { class: "how-params" }, params.join(" · ")));
+    if (m.signals) params.push(`signals=[${m.signals.map((s) => `${s.name}×${s.weight}`).join(", ")}]`);
+    if (m["feature.explainability"]) params.push("explainability=true");
+    return h("li", {},
+      h("div", { class: "how-top" }, h("b", {}, `${m.endpoint}  ${t.target}`), h("span", {}, `${t.status} · ${t.ms}ms`)),
+      h("p", { class: "how-params" }, params.join("  ")));
   }));
 }
 
-// ---- wiring ------------------------------------------------------------------------------
+// ---- wiring -------------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  loadDemos();
-  const linked = location.hash.slice(1);  // pareil.app/#nyc opens the NYC demo directly
-  if (linked === "nyc" || linked === "blr") runDemo(linked);
+  const linked = location.hash.slice(1); // /#nyc or /#blr opens a demo directly
+  const deepLink = linked === "nyc" || linked === "blr";
+
+  const fontsReady = (document.fonts ? document.fonts.ready : Promise.resolve()).catch(() => {});
+  const demosReady = loadDemos();
+  const cap = new Promise((ok) => setTimeout(ok, 1200));
+  if (deepLink) runDemo(linked);
+  else Promise.race([Promise.all([fontsReady, demosReady]), cap]).then(() => preloader.hide());
+
   document.querySelectorAll("[data-demo]").forEach((b) => b.addEventListener("click", () => runDemo(b.dataset.demo)));
   $("file").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) uploadFile(f); });
-  $("run-back").addEventListener("click", () => show("start"));
-  $("new-run").addEventListener("click", () => { show("start"); loadDemos(); });
+  document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => {
+    if (state.es) state.es.close();
+    setButtons(false);
+    show("landing");
+  }));
+  $("new-analysis").addEventListener("click", () => { show("landing"); document.getElementById("demo").scrollIntoView(); });
   $("run-live").addEventListener("click", () => state.demo && runDemo(state.demo, true));
-  $("q").addEventListener("input", (e) => { state.query = e.target.value; renderMore(); });
+  $("q").addEventListener("input", (e) => { state.query = e.target.value; renderGrid(); });
   document.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("click", () => {
     state.filter = b.dataset.filter;
     document.querySelectorAll("[data-filter]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-    renderMore();
+    renderGrid();
   }));
-  document.querySelectorAll("[data-nav]").forEach((a) => a.addEventListener("click", (e) => {
-    const nav = a.dataset.nav;
-    document.querySelectorAll(".rail-btn").forEach((x) => x.removeAttribute("aria-current"));
-    if (a.classList.contains("rail-btn")) a.setAttribute("aria-current", "page");
-    if (nav === "home" || nav === "upload" || !state.report) {
-      e.preventDefault();
-      show("start");
-      if (nav === "upload") $("file").click();
-    } else if (nav === "how") {
-      $("how").open = true;
-    }
+  // Nav links point at landing sections; from another view, switch back to the landing first.
+  document.querySelectorAll("a[data-landing]").forEach((a) => a.addEventListener("click", (e) => {
+    if (!$("landing").hidden) return;
+    e.preventDefault();
+    if (state.es) state.es.close();
+    show("landing");
+    document.querySelector(a.getAttribute("href")).scrollIntoView();
   }));
 });

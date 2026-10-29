@@ -3,211 +3,329 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pareil · same taste, smaller bill</title>
-<meta name="description" content="Pareil finds places with the same vibe as the ones you spend at, one price tier cheaper, using Qloo.">
+<title>Pareil · Same taste. Smaller bill.</title>
+<meta name="description" content="Pareil reads where you spend and finds places with the same vibe, one price tier cheaper and rated as well or better. Taste data by Qloo.">
+<meta name="theme-color" content="#121110">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="/styles.css">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%231C1F1B'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='36' fill='%23F4F2EC' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%23121110'/%3E%3Ccircle cx='32' cy='32' r='29' fill='none' stroke='%23C9A46A' stroke-width='2'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='34' fill='%23C9A46A' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
 <script src="/app.js" defer></script>
 </head>
-<body>
-<div class="backdrop" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+<body class="loading">
 
-<div class="window">
-  <nav class="rail" aria-label="Main">
-    <a class="mark" href="#" data-nav="home" aria-label="Pareil home">P</a>
-    <a class="rail-btn" href="#" data-nav="home" aria-label="Overview" aria-current="page">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
-    </a>
-    <a class="rail-btn" href="#more" data-nav="swaps" aria-label="Swaps">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4L3 8l4 4"/><path d="M3 8h14"/><path d="M17 20l4-4-4-4"/><path d="M21 16H7"/></svg>
-    </a>
-    <a class="rail-btn" href="#summary" data-nav="savings" aria-label="Savings">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
-    </a>
-    <a class="rail-btn" href="#" data-nav="upload" aria-label="Upload spending">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
-    </a>
-    <a class="rail-btn" href="#how" data-nav="how" aria-label="How we know (Qloo calls)">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
-    </a>
+<!-- PRELOADER -->
+<div id="preloader" class="preloader play" role="status" aria-live="polite">
+  <div class="pl-glow pl-drift" aria-hidden="true"></div>
+  <div class="pl-stage">
+    <span class="pl-ring" aria-hidden="true"></span>
+    <span class="pl-ring pl-ring2" aria-hidden="true"></span>
+    <div class="pl-word-wrap">
+      <p class="pl-word" aria-label="Pareil"><span class="pl-mask" aria-hidden="true"><span class="pl-l d1 brass">P</span></span><span class="pl-mask" aria-hidden="true"><span class="pl-l d2">a</span></span><span class="pl-mask" aria-hidden="true"><span class="pl-l d3">r</span></span><span class="pl-mask" aria-hidden="true"><span class="pl-l d4">e</span></span><span class="pl-mask" aria-hidden="true"><span class="pl-l d5">i</span></span><span class="pl-mask" aria-hidden="true"><span class="pl-l d6">l</span></span></p>
+      <div class="pl-shine" aria-hidden="true">Pareil</div>
+    </div>
+    <div class="pl-line" aria-hidden="true"></div>
+    <div class="pl-ghost" aria-hidden="true">Pareil</div>
+    <p class="pl-tag">Save without compromising on taste</p>
+    <div class="pl-progress">
+      <div class="pl-bar" role="progressbar" aria-label="Loading Pareil"><div class="pl-fill"></div></div>
+      <span id="pl-status" class="pl-fade mono">reading the taste graph</span>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+<!-- NAV -->
+<header class="nav wrap">
+  <a href="#top" class="brand" data-landing>
+    <span class="p-mark" aria-hidden="true">P</span>
+    <span class="brand-text"><span class="brand-name">Pareil</span><span class="brand-sub">Taste-matched savings</span></span>
+  </a>
+  <nav aria-label="Primary" class="nav-pills">
+    <a href="#top" data-landing aria-current="true">Overview</a>
+    <a href="#why" data-landing>Why Pareil</a>
+    <a href="#how" data-landing>How it works</a>
+    <a href="#swaps" data-landing>Swaps</a>
+    <a href="#agent" data-landing>Under the hood</a>
   </nav>
+  <a href="#demo" class="btn-cream" data-landing>
+    Try the demo
+    <span class="btn-cream-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </a>
+</header>
 
-  <main class="content">
+<!-- ============ LANDING ============ -->
+<main id="landing" class="view">
 
-    <!-- 1. START -->
-    <section id="start" class="state start-state" aria-labelledby="start-title">
-      <div class="start-head">
-        <div class="start-badge-row">
-          <span class="start-badge"><span class="badge-dot"></span> Pareil · Cultural Taste Intelligence</span>
-          <span class="start-subbadge">Powered by Qloo</span>
+  <section id="top" class="wrap">
+    <div class="hero">
+      <div class="hero-word" aria-hidden="true">Pareil</div>
+      <p class="hero-kicker">Same vibe &nbsp;·&nbsp; One tier down &nbsp;·&nbsp; Powered by Qloo</p>
+
+      <div class="hero-row">
+        <div class="hero-copy">
+          <h1 class="display">Same taste.<br><span class="em-brass">Smaller bill.</span></h1>
+          <p class="lede">Pareil reads where you actually spend, then finds places that people with your taste love — one price tier cheaper, and rated as well or better.</p>
+          <div class="cta-row">
+            <button type="button" class="btn-brass" data-demo="nyc">Try the NYC demo
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+            <button type="button" class="btn-line" data-demo="blr">Try Bengaluru</button>
+          </div>
+          <p class="fine">No sign-up &nbsp;·&nbsp; No bank login &nbsp;·&nbsp; <label for="file" class="link-label">or upload your own spending (CSV)</label></p>
+          <p class="alert" role="alert" data-error hidden></p>
         </div>
-        <h1 id="start-title" class="display">Same taste. Smaller bill.</h1>
-        <p class="lede">Pareil reads where you spend, asks Qloo which places share their vibe, and keeps only the ones one price tier cheaper and rated at least as well.</p>
+
+        <!-- swap card: illustrative until the cached NYC run is available -->
+        <div class="swapcard" id="sample-card">
+          <div class="swapcard-head">
+            <span class="label">Sample swap</span>
+            <span class="pill-line" id="sc-city">New York</span>
+          </div>
+          <div class="place">
+            <div class="place-row"><span class="place-name" id="sc-from">Carbone</span><span class="tiers muted-tiers" id="sc-from-tier">$$$$</span></div>
+            <p class="place-meta" id="sc-from-meta">3 visits this month &nbsp;·&nbsp; avg $180 a visit &nbsp;·&nbsp; rated 4.5</p>
+          </div>
+          <div class="tier-divider">
+            <span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg><b id="sc-down">one tier down</b><span></span>
+          </div>
+          <div class="place place-twin">
+            <div class="place-row"><span class="place-name" id="sc-to">Via Carota</span><span class="tiers brass" id="sc-to-tier">$$$</span></div>
+            <p class="place-meta" id="sc-to-meta">Rated 4.6 &nbsp;·&nbsp; Italian &nbsp;·&nbsp; date night &nbsp;·&nbsp; West Village</p>
+            <p class="place-why" id="sc-why">Matched on your taste for <strong>Carbone</strong> (41%) and <strong>Katz’s</strong> (30%).</p>
+          </div>
+          <div class="swapcard-foot">
+            <div>
+              <div class="label-plain">Estimated saving</div>
+              <div class="saving"><span id="sc-save">≈ $150</span><small> / month</small></div>
+            </div>
+            <span class="fine-note" id="sc-note">Illustrative sample · from your own spending</span>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><div class="stat-num">250M+</div><div class="stat-text">taste entities in Qloo’s graph</div></div>
+          <div class="stat"><div class="stat-num">1 tier</div><div class="stat-text">cheaper, on every swap</div></div>
+          <div class="stat"><div class="stat-num">≥ yours</div><div class="stat-text">rating floor — never a worse place</div></div>
+        </div>
       </div>
+    </div>
+  </section>
 
-      <div class="start-pillars">
-        <div class="glass pillar-item">
-          <div class="pillar-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+  <section id="why" class="wrap section">
+    <div class="split">
+      <div class="split-main">
+        <p class="eyebrow">Why Pareil</p>
+        <h2 class="h2">Spend less.<br>Keep what you love.</h2>
+        <p class="body">Budget apps tell you to spend less. Pareil tells you where to go instead — places that match your taste, not just your budget.</p>
+        <div class="features">
+          <div>
+            <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg>
+            <h3 class="h3">Same vibe</h3>
+            <p class="small-body">Qloo’s taste graph matches places by what people with your taste actually love.</p>
           </div>
           <div>
-            <h2 class="pillar-title">Same taste &amp; vibe</h2>
-            <p class="pillar-desc">Multi-signal Qloo embeddings match cuisine DNA, atmosphere, and crowd affinity — no generic swaps.</p>
-          </div>
-        </div>
-        <div class="glass pillar-item">
-          <div class="pillar-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h11M4 17h6"/><path d="M18 14v6M15 17l3 3 3-3"/></svg>
+            <h3 class="h3">Truly cheaper</h3>
+            <p class="small-body">Every suggestion sits at least one price tier below the place it replaces.</p>
           </div>
           <div>
-            <h2 class="pillar-title">One tier cheaper</h2>
-            <p class="pillar-desc">Strictly 1 price tier down ($$$$ → $$$ or $$$ → $$) to unlock real savings without downgrading your experience.</p>
-          </div>
-        </div>
-        <div class="glass pillar-item">
-          <div class="pillar-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg>
-          </div>
-          <div>
-            <h2 class="pillar-title">Never lower rated</h2>
-            <p class="pillar-desc">Quality floor is enforced: recommended spots must match or exceed your original place's customer rating.</p>
+            <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>
+            <h3 class="h3">Never worse</h3>
+            <p class="small-body">A rating floor means no swap is rated below the place you’re leaving.</p>
           </div>
         </div>
       </div>
+      <div class="split-side quotes">
+        <div class="quote quote-dim">
+          <div class="label">A typical budgeting app</div>
+          <p class="quote-text">“You spent $540 on dining this month. Try cooking at home.”</p>
+        </div>
+        <div class="quote quote-brass">
+          <div class="label brass">Pareil</div>
+          <p class="quote-text">“Swap Carbone for Via Carota twice a month. Same Italian date-night feel, about $150 back.”</p>
+          <p class="fine-note">Illustrative example</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      <div class="start-cards">
-        <button type="button" class="glass card start-card" data-demo="nyc">
-          <div class="card-meta-top">
-            <span class="card-kicker">Featured Demo · USD</span>
-            <span class="card-badge">New York</span>
-          </div>
-          <span class="card-title">Try NYC demo</span>
-          <span class="card-sub">Carbone, Raoul's, Katz's and more · 41 transactions · See ~$494/mo in taste twin savings</span>
-          <div class="card-action">
-            <span class="card-status" data-status="nyc">Checking…</span>
-            <span class="card-cta-icon" aria-hidden="true">→</span>
-          </div>
-        </button>
-        <button type="button" class="glass card start-card" data-demo="blr">
-          <div class="card-meta-top">
-            <span class="card-kicker">Featured Demo · INR</span>
-            <span class="card-badge">Bengaluru</span>
-          </div>
-          <span class="card-title">Try Bengaluru demo</span>
-          <span class="card-sub">Fatty Bao, ARAKU, Sharief Bhai and more · 30 transactions · See ₹18,500/mo in taste twin savings</span>
-          <div class="card-action">
-            <span class="card-status" data-status="blr">Checking…</span>
-            <span class="card-cta-icon" aria-hidden="true">→</span>
-          </div>
-        </button>
-        <label class="glass card start-card upload-card" for="file">
-          <div class="card-meta-top">
-            <span class="card-kicker">Your data</span>
-            <span class="card-badge upload-badge">CSV Upload</span>
-          </div>
-          <span class="card-title">Upload your spending</span>
-          <span class="card-sub">Columns: <code>date, merchant, amount, city</code> (NYC or BLR, optional <code>currency</code>). Up to 300 rows, 200 KB.</span>
-          <div class="card-action">
-            <span class="card-status">Choose a file</span>
-            <span class="card-cta-icon" aria-hidden="true">↑</span>
-          </div>
+  <section id="how" class="wrap section">
+    <div class="how-row">
+      <div class="how-intro">
+        <p class="eyebrow">How it works</p>
+        <h2 class="h2 h2-sm">From statement<br>to swaps, in<br>four steps.</h2>
+      </div>
+      <div class="steps">
+        <div class="step-card"><span class="mono brass">01</span><h3 class="h3">Upload your spending</h3><p class="small-body">A CSV of date, merchant, amount and city — or open a demo month in one click.</p></div>
+        <div class="step-card"><span class="mono brass">02</span><h3 class="h3">The agent tidies up</h3><p class="small-body">Bank strings like “CARBONE NYC 0234” become real places. Uber and Amazon are set aside.</p></div>
+        <div class="step-card"><span class="mono brass">03</span><h3 class="h3">Qloo finds taste twins</h3><p class="small-body">Your favourite places become signals. Qloo returns places your taste loves, a tier cheaper.</p></div>
+        <div class="step-card"><span class="mono brass">04</span><h3 class="h3">Swaps, explained</h3><p class="small-body">Each swap says why it fits, with an honest monthly saving estimate.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="swaps" class="wrap section">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Sample swaps</p>
+        <h2 class="h2">Same vibe,<br>one tier down.</h2>
+      </div>
+      <button type="button" class="btn-line" data-demo="nyc">Run the NYC demo
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <div class="card-grid">
+      <div class="swap-tile"><span class="chip">Italian · date night</span><div class="tier-change"><s>$$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$$</span></div><p class="tile-text">Rating 4.5 → 4.6</p><div class="tile-save">≈ $150<small> / month</small></div></div>
+      <div class="swap-tile"><span class="chip">Craft beer · late night</span><div class="tier-change"><s>$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$</span></div><p class="tile-text">Rating 4.3 → 4.4</p><div class="tile-save">≈ $60<small> / month</small></div></div>
+      <div class="swap-tile"><span class="chip">Specialty coffee · work-friendly</span><div class="tier-change"><s>$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$</span></div><p class="tile-text">Rating 4.6 → 4.6</p><div class="tile-save">≈ $35<small> / month</small></div></div>
+      <div class="swap-tile"><span class="chip">Brunch · weekend</span><div class="tier-change"><s>$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$</span></div><p class="tile-text">Rating 4.4 → 4.5</p><div class="tile-save">≈ $48<small> / month</small></div></div>
+    </div>
+    <p class="fine-note spaced">Illustrative examples. Real swaps and estimates come from your own spending.</p>
+  </section>
+
+  <section id="agent" class="wrap section">
+    <div class="agent">
+      <div class="agent-copy">
+        <p class="eyebrow">Under the hood</p>
+        <h2 class="h2">The model chooses.<br><span class="em-brass">The code enforces.</span></h2>
+        <p class="body">Pareil is an agent with guardrails. The LLM tidies merchant names and decides how to recover when matches are thin. Plain, tested code ranks every swap and checks every claim.</p>
+        <ul class="checks">
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Every place shown comes from Qloo — invented names are rejected.</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Savings come from your own spending, and are labelled as estimates.</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Every Qloo call is listed in a “How we know” panel.</li>
+        </ul>
+      </div>
+      <div class="trace">
+        <div class="trace-head"><span class="trace-title">Agent trace</span><span class="trace-sub">illustrative run</span></div>
+        <ol class="trace-list">
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Read 40 transactions</span><span class="t-ms">0.1s</span></li>
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Cleaned 26 merchants · 6 set aside (not dining)</span><span class="t-ms">4.2s</span></li>
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Matched 18 places on Qloo</span><span class="t-ms">18 calls</span></li>
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Found taste twins · weighted signals 3 : 1 : 1</span><span class="t-ms">9 calls</span></li>
+          <li class="t-retry"><svg class="ic-retry" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span class="t-text">Thin results for 1 place → agent chose <span class="brass">broaden_signal</span></span><span class="t-ms">1 retry</span></li>
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Ranked swaps · rating floor applied</span><span class="t-ms">0.0s</span></li>
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Wrote 9 explanations · every name verified</span><span class="t-ms">3.8s</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="demo" class="wrap section">
+    <div class="cta">
+      <div class="cta-copy">
+        <h2 class="h2 h2-lg">Find your <span class="em-brass">pareil</span>.</h2>
+        <p class="body">Open a sample month and watch the agent work. No sign-up, no bank login.</p>
+        <div class="cta-row">
+          <button type="button" class="btn-brass" data-demo="nyc">Try the NYC demo</button>
+          <button type="button" class="btn-line" data-demo="blr">Try Bengaluru</button>
+          <label for="file" class="btn-text">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+            Upload a CSV
+          </label>
           <input id="file" type="file" accept=".csv,text/csv" class="visually-hidden">
-        </label>
-      </div>
-      <p id="start-error" class="alert" role="alert" hidden></p>
-      <div class="start-footer">
-        <p class="footnote">Places and ratings from Qloo · savings are estimates from your own spending</p>
-      </div>
-    </section>
-
-    <!-- 2. RUNNING -->
-    <section id="running" class="state" aria-labelledby="run-title" hidden>
-      <div class="glass panel run-panel">
-        <div class="run-head">
-          <div>
-            <h2 id="run-title" class="h2">Working on it</h2>
-            <p id="run-sub" class="muted small"></p>
-          </div>
-          <span id="run-count" class="pill">0 steps</span>
         </div>
-        <ol id="timeline" class="timeline" aria-live="polite"></ol>
-        <p id="run-error" class="alert" role="alert" hidden></p>
-        <button type="button" id="run-back" class="btn-ghost" hidden>Back to start</button>
+        <p class="alert" role="alert" data-error hidden></p>
+        <p id="demo-status" class="fine-note spaced"></p>
       </div>
-    </section>
+      <div class="cta-side">
+        <div class="label spaced-below">Your file, in this shape</div>
+        <div class="code-box"><pre>date,merchant,amount,city
+2026-10-03,CARBONE NYC 0234,186.40,New York
+2026-10-05,JOES PIZZA BLEECKER,11.25,New York
+2026-10-09,UBER *TRIP 8812,23.10,New York
+2026-10-12,KATZS DELICATESSEN,32.80,New York</pre></div>
+        <p class="fine-note spaced">Non-dining rows like Uber are set aside automatically. Optional <span class="mono">currency</span> column (USD or INR); up to 300 rows, 200 KB; New York or Bengaluru.</p>
+      </div>
+    </div>
+  </section>
+</main>
 
-    <!-- 3. RESULTS -->
-    <section id="results" class="state" aria-label="Your swaps" hidden>
-      <div class="topbar">
+<!-- ============ RUNNING ============ -->
+<main id="running" class="view wrap" hidden>
+  <button type="button" class="back" data-back>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>Back
+  </button>
+  <div class="trace run-trace">
+    <div class="trace-head">
+      <span class="trace-title" id="run-title">Agent trace</span>
+      <span class="trace-sub" id="run-sub"></span>
+    </div>
+    <ol id="timeline" class="trace-list" aria-live="polite"></ol>
+    <p id="run-error" class="alert" role="alert" hidden></p>
+  </div>
+</main>
+
+<!-- ============ RESULTS ============ -->
+<main id="results" class="view wrap" hidden>
+  <div class="res-head">
+    <div class="chips">
+      <span class="pill-line strong" id="data-chip"></span>
+      <span class="pill-line" id="month-chip"></span>
+      <span class="replay" id="replay" hidden><span id="replay-text"></span><button type="button" class="btn-small" id="run-live">Run live</button></span>
+    </div>
+    <button type="button" class="btn-line" id="new-analysis">New analysis</button>
+  </div>
+
+  <section class="headline" aria-labelledby="headline-num">
+    <p class="eyebrow">If you swap 1 in 2 visits</p>
+    <p class="headline-num" id="headline-num"></p>
+    <p class="fine-note" id="headline-note"></p>
+  </section>
+
+  <section id="res-hero" class="res-hero" aria-live="polite"></section>
+
+  <section class="res-swaps" aria-labelledby="more-title">
+    <div class="section-head">
+      <h2 id="more-title" class="h2 h2-sm">More swaps that fit your taste</h2>
+      <div class="filters">
         <div class="search">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           <label for="q" class="visually-hidden">Search places or merchants</label>
           <input id="q" type="search" placeholder="Search places or merchants" autocomplete="off">
         </div>
         <div class="segmented" role="group" aria-label="Filter by category">
-          <button type="button" aria-pressed="true" data-filter="all">All swaps</button>
+          <button type="button" aria-pressed="true" data-filter="all">All</button>
           <button type="button" aria-pressed="false" data-filter="restaurant">Restaurants</button>
           <button type="button" aria-pressed="false" data-filter="cafe">Cafés</button>
           <button type="button" aria-pressed="false" data-filter="deli">Delis</button>
           <button type="button" aria-pressed="false" data-filter="budget">Budget already</button>
         </div>
-        <span class="spacer"></span>
-        <span id="month-chip" class="chip"></span>
-        <div class="data-chip">
-          <span id="data-badge" class="badge" aria-hidden="true"></span>
-          <span class="data-text"><span id="data-title" class="strong small"></span><span id="data-sub" class="muted xsmall"></span></span>
-        </div>
       </div>
+    </div>
+    <div id="swap-grid" class="card-grid"></div>
+    <p id="swap-empty" class="fine-note spaced" hidden>Nothing matches this search or filter.</p>
+  </section>
 
-      <div id="replay-bar" class="glass replay-bar" hidden>
-        <span id="replay-text"></span>
-        <button type="button" id="run-live" class="btn-small">Run live</button>
-      </div>
+  <section class="lists" aria-label="Everything else">
+    <div class="list-card"><h3 class="label">Hard to beat</h3><ul id="list-hard"></ul></div>
+    <div class="list-card"><h3 class="label">Already budget-friendly</h3><ul id="list-budget"></ul></div>
+    <div class="list-card"><h3 class="label">Needs review</h3><ul id="list-review"></ul></div>
+    <div class="list-card"><h3 class="label">Skipped (not dining)</h3><ul id="list-skipped"></ul></div>
+  </section>
 
-      <div class="main-area">
-        <div class="left-col">
-          <section class="glass panel" aria-labelledby="top-title">
-            <h2 id="top-title" class="h2 panel-title">Top swaps</h2>
-            <div id="top-swaps" class="stack"></div>
-          </section>
-          <section class="glass panel" aria-labelledby="where-title">
-            <h2 id="where-title" class="h2 panel-title">Where you spent</h2>
-            <ul id="where" class="where"></ul>
-          </section>
-        </div>
+  <details id="how-we-know" class="howknow">
+    <summary><span class="h3">How we know</span><span class="trace-sub" id="how-count"></span></summary>
+    <p class="small-body">Every Qloo call this run made. Signals are your own places: the origin at weight 3, two others at weight 1.</p>
+    <ol id="how-list" class="how-list"></ol>
+  </details>
 
-        <div class="right-col">
-          <section id="hero" class="hero" aria-live="polite"></section>
+  <p class="fine-note spaced" id="res-foot"></p>
+</main>
 
-          <div id="summary" class="summary">
-            <div class="glass tile"><div class="muted small">If you swap 1 in 2 visits</div><div id="sum-save" class="serif big-num accent"></div><div id="sum-est" class="muted xsmall"></div></div>
-            <div class="glass tile"><div class="muted small">Swaps found</div><div id="sum-swaps" class="serif big-num"></div></div>
-            <div class="glass tile"><div class="muted small">Rating floor</div><div class="serif big-num">Never lower</div></div>
-          </div>
-
-          <section id="more" aria-labelledby="more-title">
-            <div class="section-head">
-              <h2 id="more-title" class="h2">More swaps that fit your taste</h2>
-              <button type="button" id="new-run" class="btn-small">New run</button>
-            </div>
-            <div id="more-grid" class="grid"></div>
-            <p id="more-empty" class="muted small" hidden>Nothing matches this filter.</p>
-          </section>
-
-          <details id="how" class="glass panel how">
-            <summary class="h2">How we know <span id="how-count" class="muted small"></span></summary>
-            <p class="muted small">Every Qloo call this run made: the endpoint, the parameters that matter, the status and the time. Weighted signals are your own places (origin weight 3, two others weight 1).</p>
-            <ol id="how-list" class="how-list"></ol>
-          </details>
-        </div>
-      </div>
-
-      <p class="footnote"><span id="foot-source"></span> · savings are estimates from your own spending · places and ratings from Qloo</p>
-    </section>
-  </main>
+<footer class="wrap footer">
+  <div class="footer-row">
+    <div class="footer-brand"><span class="p-mark p-mark-sm" aria-hidden="true">P</span><span class="brand-name">Pareil</span></div>
+    <p class="fine-note">Built for the Qloo Agentic Hackathon 2026 &nbsp;·&nbsp; Taste data by Qloo &nbsp;·&nbsp; Open source (MIT)</p>
+    <nav aria-label="Footer">
+      <a href="https://github.com/Ashwanijha1405/Pareil" class="icon-btn" aria-label="Source code on GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.3 4.3 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.3 4.3 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
+      </a>
+    </nav>
+  </div>
+</footer>
 </div>
 </body>
 </html>
