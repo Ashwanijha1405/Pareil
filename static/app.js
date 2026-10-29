@@ -4,7 +4,11 @@
 
 const $ = (id) => document.getElementById(id);
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const state = { report: null, demo: null, filter: "all", query: "", heroIndex: 0, runs: 0, es: null };
+const state = { report: null, demo: null, filter: "all", query: "", heroIndex: 0, runs: 0, stop: null };
+// The live backend (Render). Demos never need it: they play recorded runs from /demo/*.json.
+const API = String(window.PAREIL_API || "").replace(/\/+$/, "");
+const api = (path) => API + path;
+const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
 function h(tag, props = {}, ...children) {
   const el = document.createElement(tag);
@@ -102,6 +106,8 @@ const preloader = {
     const el = $("preloader");
     if (!el) return;
     $("pl-status").textContent = text || "reading the taste graph";
+    $("pl-skip").hidden = true;
+    el.style.display = "";
     el.classList.remove("play");
     void el.offsetWidth;
     el.classList.add("play");
@@ -155,47 +161,58 @@ function setButtons(busy) {
   document.querySelectorAll("[data-demo]").forEach((b) => (b.disabled = busy));
 }
 
-// ---- landing: demo status + live sample card ---------------------------------------------
-async function loadDemos() {
+// ---- backend wake-up -----------------------------------------------------------------------
+// The free backend sleeps when idle. Page load nudges it awake in the background; a live run or
+// upload waits for it (preloader on) for up to 90 s before giving up.
+const WAKE_MS = 90_000;
+const WAKE_EVERY_MS = 3_000;
+
+async function ping(timeoutMs) {
   try {
-    const demos = await (await fetch("/api/demos")).json();
-    const ready = demos.filter((d) => d.ready);
-    $("demo-status").textContent = ready.length
-      ? `Demos open instantly as a replay of the run at ${hhmm(ready[0].ran_at)}; “Run live” calls Qloo again.`
-      : "Demos run live right now (about a minute) while the instant replays warm up.";
-    const nyc = demos.find((d) => d.id === "nyc");
-    if (nyc && nyc.ready) fillLanding(demos.some((d) => d.id === "blr" && d.ready));
-    else setTimeout(loadDemos, 15000);
+    const res = await fetch(api("/healthz"), { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
+    return res.ok;
   } catch {
-    $("demo-status").textContent = "";
+    return false;
   }
 }
-
-async function fetchReplay(demo) {
-  const res = await fetch("/api/runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ demo }) });
-  const data = await res.json();
-  if (!res.ok || !data.replay) return null; // never start a live run just to decorate the page
-  await new Promise((ok) => {
-    const es = new EventSource(`/api/runs/${data.run_id}/events`);
-    const end = () => { es.close(); ok(); };
-    es.addEventListener("done", end);
-    es.addEventListener("error", end);
-  });
-  const r = await fetch(`/api/runs/${data.run_id}/report`);
-  return r.status === 200 ? r.json() : null;
+function wakeBackend() {
+  fetch(api("/healthz"), { cache: "no-store" }).catch(() => {}); // fire and forget; failures stay silent
+}
+async function ensureAwake() {
+  if (await ping(3000)) return true;
+  preloader.show("Waking the server, up to a minute on first use");
+  const until = performance.now() + WAKE_MS;
+  while (performance.now() < until) {
+    await sleep(WAKE_EVERY_MS);
+    if (await ping(5000)) { preloader.hide(); return true; }
+  }
+  preloader.hide();
+  return false;
 }
 
-// Every number on the landing page comes from the demo runs. The HTML ships the values of
-// one real run; these replace them with the run the server is replaying now.
-async function fillLanding(blrReady) {
+// ---- recorded demos ---------------------------------------------------------------------------
+// Trimmed output of one recorded run per city (scripts/export_demos.py), served as static files.
+const demoFiles = {};
+function loadDemo(demo) {
+  demoFiles[demo] ||= fetch(`/demo/${demo}.json`).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
+  return demoFiles[demo];
+}
+
+async function loadLanding() {
   let nyc, blr;
-  try { [nyc, blr] = await Promise.all([fetchReplay("nyc"), blrReady ? fetchReplay("blr") : null]); } catch { return; }
-  if (!nyc) return;
+  try { [nyc, blr] = await Promise.all([loadDemo("nyc"), loadDemo("blr").catch(() => null)]); } catch { return; }
+  $("demo-status").textContent = `Demos open instantly: replayed from recorded runs (NYC at ${hhmm(nyc.ran_at)}). “Run live” calls Qloo again.`;
   fillSampleCard(nyc);
   fillStatsAndQuote(nyc);
   fillTiles(nyc, blr);
   fillAgentTrace(nyc);
 }
+
+// Every number on the landing page comes from the recorded demo runs. The HTML ships the same
+// values so the page reads correctly before the JSON arrives.
 
 function fillStatsAndQuote(r) {
   $("st-save").textContent = money(r, r.summary.monthly_saving_half);
@@ -303,15 +320,20 @@ function driverSentence(p) {
 }
 
 // ---- starting runs ------------------------------------------------------------------------
+const DEMO_LABEL = { nyc: "NYC demo", blr: "Bengaluru demo" };
+
 async function startRun(body, headers, label) {
   clearErrors();
   setButtons(true);
+  if (!(await ensureAwake())) {
+    return showError("The live server didn't wake up. The demos still work; try a live run again in a minute.");
+  }
   let res, data;
   try {
-    res = await fetch("/api/runs", { method: "POST", headers, body });
+    res = await fetch(api("/api/runs"), { method: "POST", headers, body });
     data = await res.json();
   } catch {
-    return showError("Couldn't reach Pareil. Check your connection and try again.");
+    return showError("Couldn't reach the live server. The demos still work; try again in a minute.");
   }
   if (!res.ok) return showError(data.error || `Request failed (${res.status}).`);
   follow(data.run_id, label);
@@ -319,8 +341,8 @@ async function startRun(body, headers, label) {
 
 function runDemo(demo, live = false) {
   state.demo = demo;
-  const label = demo === "nyc" ? "NYC demo" : "Bengaluru demo";
-  startRun(JSON.stringify({ demo, live }), { "Content-Type": "application/json" }, label);
+  if (live) startRun(JSON.stringify({ demo }), { "Content-Type": "application/json" }, `${DEMO_LABEL[demo]} · live`);
+  else playDemo(demo);
 }
 
 function uploadFile(file) {
@@ -332,42 +354,64 @@ function uploadFile(file) {
   startRun(file, { "Content-Type": "text/csv" }, file.name);
 }
 
-// ---- running: live trace ------------------------------------------------------------------
-function follow(runId, label) {
-  state.runs += 1;
-  if (state.es) state.es.close();
+// ---- running: trace view (live SSE or a recorded demo played in the browser) --------------
+function stopActive() {
+  if (state.stop) state.stop();
+  state.stop = null;
+  pulse.stop();
+}
 
+function openRunView(label, sub) {
+  stopActive();
+  state.runs += 1;
   show("running");
   $("timeline").replaceChildren();
   $("run-error").hidden = true;
   $("run-title").textContent = "Agent trace";
-  $("run-sub").textContent = label;
-  pulse.start();
+  $("run-sub").textContent = sub || label;
+}
 
-  const es = new EventSource(`/api/runs/${runId}/events`);
-  state.es = es;
-  es.addEventListener("start", (e) => {
-    const meta = JSON.parse(e.data);
-    $("run-sub").textContent = meta.replayed_at ? `replay of ${hhmm(meta.replayed_at)} run` : "live · calling Qloo";
-    if (meta.replayed_at) pulse.stop(); // a replay makes no calls; don't claim it is asking Qloo
-  });
-  es.addEventListener("step", (e) => {
-    const ev = JSON.parse(e.data);
-    pulse.set(ev.step);
-    const li = stepItem(ev);
-    const list = $("timeline");
-    list.append(li);
-    // Scroll the list, never the page: scrollIntoView moved the whole window on every step.
-    list.scrollTo({ top: list.scrollHeight, behavior: REDUCED ? "auto" : "smooth" });
-  });
+function addStep(ev) {
+  pulse.set(ev.step);
+  const list = $("timeline");
+  list.append(stepItem(ev));
+  // Scroll the list, never the page: scrollIntoView moved the whole window on every step.
+  list.scrollTo({ top: list.scrollHeight, behavior: REDUCED ? "auto" : "smooth" });
+}
+
+const REPLAY_STEP_MS = 50;
+async function playDemo(demo) {
+  clearErrors();
+  setButtons(true);
+  let report;
+  try { report = await loadDemo(demo); } catch { return showError("Couldn't load the demo. Check your connection and try again."); }
+  openRunView(DEMO_LABEL[demo], `replayed from a recorded run at ${hhmm(report.ran_at)}`);
+  let stopped = false;
+  state.stop = () => { stopped = true; };
+  for (const ev of report.trace) {
+    if (stopped) return;
+    addStep(ev);
+    await sleep(REDUCED ? 0 : REPLAY_STEP_MS);
+  }
+  await sleep(REDUCED ? 0 : 500);
+  if (!stopped) renderResults(report);
+}
+
+function follow(runId, label) {
+  openRunView(label, "live · calling Qloo");
+  pulse.start();
+  const es = new EventSource(api(`/api/runs/${runId}/events`));
+  let closed = false;
+  state.stop = () => { closed = true; es.close(); };
+  es.addEventListener("step", (e) => addStep(JSON.parse(e.data)));
   es.addEventListener("done", async () => {
     es.close();
     pulse.stop();
     try {
-      const [res] = await Promise.all([fetch(`/api/runs/${runId}/report`), new Promise((ok) => setTimeout(ok, REDUCED ? 0 : 500))]);
+      const [res] = await Promise.all([fetch(api(`/api/runs/${runId}/report`)), sleep(REDUCED ? 0 : 500)]);
       if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`);
       const report = await res.json();
-      if (state.es !== es || $("running").hidden) return; // the user went back meanwhile
+      if (closed || $("running").hidden) return; // the user went back meanwhile
       renderResults(report);
     } catch (err) {
       runError(`Couldn't load the report: ${err.message}`);
@@ -375,6 +419,7 @@ function follow(runId, label) {
   });
   es.addEventListener("error", (e) => {
     es.close();
+    if (closed) return;
     let message = "The connection to the run was lost. Go back and try again.";
     try { if (e.data) message = JSON.parse(e.data).error; } catch {}
     runError(message);
@@ -451,7 +496,7 @@ function renderResults(report) {
   $("month-chip").textContent = new Date(report.period.first + "T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
   $("replay").hidden = !report.replayed_at;
   if (report.replayed_at) {
-    $("replay-text").textContent = `Replayed from a run at ${hhmm(report.replayed_at)}`;
+    $("replay-text").textContent = `Replayed from a recorded run at ${hhmm(report.replayed_at)}`;
     $("run-live").hidden = !state.demo;
   }
 
@@ -607,7 +652,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const linked = location.hash.slice(1); // /#nyc or /#blr opens a demo directly
   const deepLink = linked === "nyc" || linked === "blr";
 
-  loadDemos();
+  loadLanding();
+  wakeBackend();
 
   const skipBtn = $("pl-skip");
   if (skipBtn) skipBtn.addEventListener("click", () => preloader.hide(0));
@@ -622,8 +668,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-demo]").forEach((b) => b.addEventListener("click", () => runDemo(b.dataset.demo)));
   $("file").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) uploadFile(f); });
   document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => {
-    if (state.es) state.es.close();
-    pulse.stop();
+    stopActive();
     setButtons(false);
     show("landing");
   }));
@@ -639,7 +684,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("a[data-landing]").forEach((a) => a.addEventListener("click", (e) => {
     if (!$("landing").hidden) return;
     e.preventDefault();
-    if (state.es) state.es.close();
+    stopActive();
     show("landing");
     document.querySelector(a.getAttribute("href")).scrollIntoView();
   }));
