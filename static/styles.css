@@ -397,6 +397,7 @@ a.swap-tile:hover, .swap-tile:hover {
 .tier-change s { color: var(--faint); }
 .tier-change svg { width: 18px; height: 18px; color: var(--brass); }
 .tile-text { margin: 0; font-size: 14px; color: var(--label); }
+.tile-pair { margin: 0; font-family: var(--serif); font-size: 22px; line-height: 1.15; color: var(--text); overflow-wrap: anywhere; }
 .tile-name { margin: 0; font-family: var(--serif); font-size: 26px; line-height: 1.1; overflow-wrap: anywhere; }
 .tile-save { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); font-family: var(--serif); font-size: 30px; }
 .tile-save small { font-size: 15px; }
@@ -442,7 +443,14 @@ a.swap-tile:hover, .swap-tile:hover {
 .back:hover { color: #FFFFFF; }
 .back svg { width: 16px; height: 16px; }
 .run-trace { padding: clamp(20px, 3vw, 32px); }
-.run-trace .trace-list { max-height: 68vh; overflow: auto; }
+/* fixed height: the panel no longer grows step by step, and only the list scrolls */
+.run-trace .trace-list { height: min(60vh, 560px); overflow: auto; overscroll-behavior: contain; }
+.run-trace .trace-list { scrollbar-width: thin; scrollbar-color: rgba(237, 231, 223, 0.18) transparent; padding-right: 6px; }
+.run-trace .trace-list::-webkit-scrollbar { width: 6px; }
+.run-trace .trace-list::-webkit-scrollbar-thumb { background: rgba(237, 231, 223, 0.18); border-radius: 999px; }
+.run-trace .trace-list::-webkit-scrollbar-track { background: transparent; }
+.view-in { animation: viewIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes viewIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* results */
 .res-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
@@ -652,7 +660,7 @@ a.swap-tile:hover, .swap-tile:hover {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .bd-glow, .pulse-dot { animation: none; }
+  .bd-glow, .pulse-dot, .view-in { animation: none; }
   .preloader.play .pl-l, .preloader.play .pl-line, .preloader.play .pl-ghost, .preloader.play .pl-tag,
   .preloader.play .pl-fill, .preloader.play .pl-fade { animation: none !important; opacity: 1; filter: none; }
   .preloader.play .pl-shine, .preloader.play .pl-ring, .preloader.play .pl-ring2, .pl-drift { animation: none !important; opacity: 0; }

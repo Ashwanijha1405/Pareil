@@ -96,10 +96,10 @@
           <p class="alert" role="alert" data-error hidden></p>
         </div>
 
-        <!-- swap card: illustrative until the cached NYC run is available -->
+        <!-- swap card: values from a real NYC demo run; app.js refreshes them from the current replay -->
         <div class="swapcard" id="sample-card">
           <div class="swapcard-head">
-            <span class="label">Sample swap</span>
+            <span class="label">Real swap · NYC demo</span>
             <span class="pill-line" id="sc-city">New York</span>
           </div>
           <div class="place place-with-img">
@@ -108,7 +108,7 @@
             </div>
             <div class="place-info">
               <div class="place-row"><span class="place-name" id="sc-from">Carbone</span><span class="tiers muted-tiers" id="sc-from-tier">$$$$</span></div>
-              <p class="place-meta" id="sc-from-meta">3 visits this month &nbsp;·&nbsp; avg $180 a visit &nbsp;·&nbsp; rated 4.5</p>
+              <p class="place-meta" id="sc-from-meta">4 visits this month · avg $225 a visit · rated 4.3</p>
             </div>
           </div>
           <div class="tier-divider">
@@ -116,28 +116,28 @@
           </div>
           <div class="place place-twin place-with-img">
             <div class="place-thumb-wrap">
-              <img id="sc-to-img" class="place-thumb" src="/images/via-carota.jpg" alt="Via Carota" loading="lazy">
+              <img id="sc-to-img" class="place-thumb" src="/images/ci-siamo.jpg" alt="Ci Siamo" loading="lazy">
             </div>
             <div class="place-info">
-              <div class="place-row"><span class="place-name" id="sc-to">Via Carota</span><span class="tiers brass" id="sc-to-tier">$$$</span></div>
-              <p class="place-meta" id="sc-to-meta">Rated 4.6 &nbsp;·&nbsp; Italian &nbsp;·&nbsp; date night &nbsp;·&nbsp; West Village</p>
-              <p class="place-why" id="sc-why">Matched on your taste for <strong>Carbone</strong> (41%) and <strong>Katz’s</strong> (30%).</p>
+              <div class="place-row"><span class="place-name" id="sc-to">Ci Siamo</span><span class="tiers brass" id="sc-to-tier">$$$</span></div>
+              <p class="place-meta" id="sc-to-meta">Rated 4.6 · Italian</p>
+              <p class="place-why" id="sc-why">Matched on your taste for <strong>Carbone New York</strong> (39%) and <strong>Raoul’s</strong> (39%).</p>
             </div>
           </div>
           <div class="swapcard-foot">
             <div>
               <div class="label-plain">Estimated saving</div>
-              <div class="saving"><span id="sc-save">≈ $150</span><small> / month</small></div>
+              <div class="saving"><span id="sc-save">≈ $284</span><small> / month</small></div>
             </div>
-            <span class="fine-note" id="sc-note">Illustrative sample · from your own spending</span>
+            <span class="fine-note" id="sc-note">From the NYC demo run · if you swap 1 in 2 visits</span>
           </div>
         </div>
 
       </div>
 
       <div class="stats">
-        <div class="stat"><div class="stat-num">250M+</div><div class="stat-text">taste entities in Qloo’s graph</div></div>
-        <div class="stat"><div class="stat-num">1 tier</div><div class="stat-text">cheaper, on every swap</div></div>
+        <div class="stat"><div class="stat-num" id="st-save">$494</div><div class="stat-text" id="st-save-text">a month found in the NYC demo, swapping 1 in 2 visits (part estimate)</div></div>
+        <div class="stat"><div class="stat-num">1+ tier</div><div class="stat-text">cheaper, on every swap</div></div>
         <div class="stat"><div class="stat-num">≥ yours</div><div class="stat-text">rating floor: never a worse place</div></div>
       </div>
     </div>
@@ -154,13 +154,13 @@
     <div class="versus">
       <div class="quote quote-dim">
         <div class="label">A typical budgeting app</div>
-        <p class="quote-text">“You spent $540 on dining. <s>Try cooking at home.</s>”</p>
+        <p class="quote-text">“You spent <span id="q-spent">$2,136</span> on dining. <s>Try cooking at home.</s>”</p>
       </div>
       <span class="vs" aria-hidden="true">vs</span>
       <div class="quote quote-brass">
         <div class="label brass">Pareil</div>
-        <p class="quote-text">“Swap Carbone for Via Carota twice a month. <mark>About $150 back.</mark>”</p>
-        <p class="fine-note">Same Italian date-night feel · illustrative example</p>
+        <p class="quote-text" id="q-pareil">“Swap Carbone for Ci Siamo on 2 of your 4 visits. <mark>About $284 back.</mark>”</p>
+        <p class="fine-note" id="q-note">Same Italian, rated 4.6 vs 4.3 · from the NYC demo month</p>
       </div>
     </div>
   </section>
@@ -190,53 +190,57 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </div>
-    <div class="card-grid">
+    <div class="card-grid" id="sample-tiles">
       <div class="swap-tile tile-has-img">
         <div class="tile-img-container">
-          <img class="tile-img" src="/images/sample-italian.jpg" alt="Italian date night" loading="lazy">
-          <span class="chip chip-overlay">Italian · date night</span>
+          <img class="tile-img" src="/images/ci-siamo.jpg" alt="" loading="lazy">
+          <span class="chip chip-overlay">Italian · New York</span>
         </div>
         <div class="tile-body">
+          <p class="tile-pair">Carbone → Ci Siamo</p>
           <div class="tier-change"><s>$$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$$</span></div>
-          <p class="tile-text">Rating 4.5 → 4.6</p>
-          <div class="tile-save">≈ $150<small> / month</small></div>
+          <p class="tile-text">Rating 4.3 → 4.6</p>
+          <div class="tile-save">≈ $284<small> / month</small></div>
         </div>
       </div>
       <div class="swap-tile tile-has-img">
         <div class="tile-img-container">
-          <img class="tile-img" src="/images/sample-beer.jpg" alt="Craft beer late night" loading="lazy">
-          <span class="chip chip-overlay">Craft beer · late night</span>
+          <img class="tile-img" src="/images/malaparte.jpg" alt="" loading="lazy">
+          <span class="chip chip-overlay">Italian · New York</span>
         </div>
         <div class="tile-body">
+          <p class="tile-pair">Via Carota → Malaparte</p>
           <div class="tier-change"><s>$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$</span></div>
+          <p class="tile-text">Rating 4.4 → 4.5 · estimate</p>
+          <div class="tile-save">≈ $105<small> / month</small></div>
+        </div>
+      </div>
+      <div class="swap-tile tile-has-img">
+        <div class="tile-img-container">
+          <img class="tile-img" src="/images/fatty-bao.jpg" alt="" loading="lazy">
+          <span class="chip chip-overlay">Asian · Bengaluru</span>
+        </div>
+        <div class="tile-body">
+          <p class="tile-pair">The Fatty Bao → ASEAN</p>
+          <div class="tier-change"><s>₹₹₹₹</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">₹₹₹</span></div>
           <p class="tile-text">Rating 4.3 → 4.4</p>
-          <div class="tile-save">≈ $60<small> / month</small></div>
+          <div class="tile-save">≈ ₹2,096<small> / month</small></div>
         </div>
       </div>
       <div class="swap-tile tile-has-img">
         <div class="tile-img-container">
-          <img class="tile-img" src="/images/sample-coffee.jpg" alt="Specialty coffee work-friendly" loading="lazy">
-          <span class="chip chip-overlay">Specialty coffee · work-friendly</span>
+          <img class="tile-img" src="/images/araku-coffee.jpg" alt="" loading="lazy">
+          <span class="chip chip-overlay">Coffee shop · Bengaluru</span>
         </div>
         <div class="tile-body">
-          <div class="tier-change"><s>$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$</span></div>
-          <p class="tile-text">Rating 4.6 → 4.6</p>
-          <div class="tile-save">≈ $35<small> / month</small></div>
-        </div>
-      </div>
-      <div class="swap-tile tile-has-img">
-        <div class="tile-img-container">
-          <img class="tile-img" src="/images/sample-brunch.jpg" alt="Brunch weekend" loading="lazy">
-          <span class="chip chip-overlay">Brunch · weekend</span>
-        </div>
-        <div class="tile-body">
-          <div class="tier-change"><s>$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$</span></div>
-          <p class="tile-text">Rating 4.4 → 4.5</p>
-          <div class="tile-save">≈ $48<small> / month</small></div>
+          <p class="tile-pair">Araku Coffee → Ainmane Cafe and Speciality Store</p>
+          <div class="tier-change"><s>₹₹₹</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">₹₹</span></div>
+          <p class="tile-text">Rating 4.1 → 4.4</p>
+          <div class="tile-save">≈ ₹978<small> / month</small></div>
         </div>
       </div>
     </div>
-    <p class="fine-note spaced">Illustrative examples. Real swaps and estimates come from your own spending.</p>
+    <p class="fine-note spaced" id="tiles-note">Top swaps from the NYC and Bengaluru demo months, if you swap 1 in 2 visits.</p>
   </section>
 
   <section id="agent" class="wrap section">
@@ -252,15 +256,15 @@
         </ul>
       </div>
       <div class="trace">
-        <div class="trace-head"><span class="trace-title">Agent trace</span><span class="trace-sub">illustrative run</span></div>
-        <ol class="trace-list">
-          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Read 40 transactions</span><span class="t-ms">0.1s</span></li>
-          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Cleaned 26 merchants · 6 set aside (not dining)</span><span class="t-ms">4.2s</span></li>
-          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Matched 18 places on Qloo</span><span class="t-ms">18 calls</span></li>
-          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Found taste twins · weighted signals 3 : 1 : 1</span><span class="t-ms">9 calls</span></li>
-          <li class="t-retry"><svg class="ic-retry" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span class="t-text">Thin results for 1 place → agent chose <span class="brass">broaden_signal</span></span><span class="t-ms">1 retry</span></li>
-          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Ranked swaps · rating floor applied</span><span class="t-ms">0.0s</span></li>
-          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Wrote 9 explanations · every name verified</span><span class="t-ms">3.8s</span></li>
+        <div class="trace-head"><span class="trace-title">Agent trace</span><span class="trace-sub" id="ag-sub">NYC demo run</span></div>
+        <ol class="trace-list" id="agent-trace">
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Read 41 transactions</span><span class="t-ms"></span></li>
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Cleaned 18 merchants · 11 dining, 7 set aside</span><span class="t-ms">18.3s</span></li>
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Matched 9 of 11 places on Qloo</span><span class="t-ms">11 calls</span></li>
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Found taste twins · weighted signals 3 : 1 : 1</span><span class="t-ms">5 calls</span></li>
+          <li class="t-retry"><svg class="ic-retry" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span class="t-text">Au Cheval: nothing cheaper matched its rating → <span class="brass">give_up</span></span><span class="t-ms">recovery</span></li>
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Ranked swaps · rating floor applied</span><span class="t-ms"></span></li>
+          <li><svg class="ic-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span class="t-text">Wrote 14 explanations · every name verified</span><span class="t-ms">25.7s</span></li>
         </ol>
       </div>
     </div>

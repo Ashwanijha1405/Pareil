@@ -28,7 +28,7 @@ from app.runs import RateLimiter, Run, RunStore
 MAX_UPLOAD_BYTES = 200_000
 MAX_ROWS = 300
 MAX_CONCURRENT_RUNS = 3
-REPLAY_STEP_S = 0.03  # a replay streams its saved trace quickly; it is labelled as a replay
+REPLAY_STEP_S = 0.05  # a replay streams its saved trace quickly; it is labelled as a replay
 HEARTBEAT_S = 15
 
 DEMOS = {

@@ -111,10 +111,6 @@ const preloader = {
   timer: null,
   msgTimer: null,
   startIntro() {
-    if (sessionStorage.getItem("pareil_preloaded")) {
-      this.hide(0);
-      return;
-    }
     const msgs = [
       "reading the taste graph",
       "indexing culinary fingerprints",
@@ -140,7 +136,6 @@ const preloader = {
     }, 5500);
   },
   show(text) {
-    if (sessionStorage.getItem("pareil_preloaded")) return;
     clearTimeout(this.timer);
     clearInterval(this.msgTimer);
     const el = $("preloader");
@@ -157,7 +152,6 @@ const preloader = {
   hide(minMs = 0) {
     clearTimeout(this.timer);
     clearInterval(this.msgTimer);
-    sessionStorage.setItem("pareil_preloaded", "1");
     const wait = Math.max(0, minMs - (performance.now() - this.shownAt));
     this.timer = setTimeout(() => {
       const el = $("preloader");
@@ -167,14 +161,20 @@ const preloader = {
       }
       document.body.classList.remove("loading");
       this.visible = false;
-      show("landing");
+      if (!state.runs) show("landing"); // a deep link may already have started a run
     }, wait);
   },
 };
 
 // ---- views --------------------------------------------------------------------------------
 function show(view) {
-  for (const v of ["landing", "running", "results"]) $(v).hidden = v !== view;
+  for (const v of ["landing", "running", "results"]) {
+    const el = $(v);
+    const was = !el.hidden;
+    el.hidden = v !== view;
+    // Fade the incoming view in (restart the animation only when it actually changes).
+    if (v === view && !was) { el.classList.remove("view-in"); void el.offsetWidth; el.classList.add("view-in"); }
+  }
   document.querySelectorAll(".nav-pills a").forEach((a) => a.toggleAttribute("aria-current", false));
   if (view === "landing") document.querySelector('.nav-pills a[href="#top"]').setAttribute("aria-current", "true");
   window.scrollTo({ top: 0, behavior: "instant" });
@@ -203,7 +203,7 @@ async function loadDemos() {
       ? `Demos open instantly as a replay of the run at ${hhmm(ready[0].ran_at)}; “Run live” calls Qloo again.`
       : "Demos run live right now (about a minute) while the instant replays warm up.";
     const nyc = demos.find((d) => d.id === "nyc");
-    if (nyc && nyc.ready) fillSampleCard();
+    if (nyc && nyc.ready) fillLanding(demos.some((d) => d.id === "blr" && d.ready));
     else setTimeout(loadDemos, 15000);
   } catch {
     $("demo-status").textContent = "";
@@ -224,10 +224,88 @@ async function fetchReplay(demo) {
   return r.status === 200 ? r.json() : null;
 }
 
-async function fillSampleCard() {
-  let report;
-  try { report = await fetchReplay("nyc"); } catch { return; }
-  const s = report && topSwaps(report)[0];
+// Every number on the landing page comes from the demo runs. The HTML ships the values of
+// one real run; these replace them with the run the server is replaying now.
+async function fillLanding(blrReady) {
+  let nyc, blr;
+  try { [nyc, blr] = await Promise.all([fetchReplay("nyc"), blrReady ? fetchReplay("blr") : null]); } catch { return; }
+  if (!nyc) return;
+  fillSampleCard(nyc);
+  fillStatsAndQuote(nyc);
+  fillTiles(nyc, blr);
+  fillAgentTrace(nyc);
+}
+
+function fillStatsAndQuote(r) {
+  $("st-save").textContent = money(r, r.summary.monthly_saving_half);
+  $("st-save-text").textContent = `a month found in the NYC demo, swapping 1 in 2 visits${r.summary.saving_is_estimate ? " (part estimate)" : ""}`;
+  const dining = r.where_you_spent.filter((w) => w.status !== "skipped").reduce((t, w) => t + w.avg_bill * w.visits, 0);
+  $("q-spent").textContent = money(r, dining);
+  const s = topSwaps(r)[0];
+  if (!s) return;
+  const p = s.picks[0];
+  const half = Math.ceil(s.visits / 2);
+  $("q-pareil").replaceChildren(`“Swap ${shortName(s.merchant)} for ${shortName(p.name)} on ${half} of your ${plural(s.visits, "visit")}. `,
+    h("mark", {}, `About ${money(r, s.saving.monthly_half)} back.`), "”");
+  $("q-note").textContent = `${p.shared[0] ? `Same ${p.shared[0]}, ` : ""}rated ${p.rating} vs ${s.rating} · from the NYC demo month${s.saving.estimate ? " · estimate" : ""}`;
+}
+
+function sampleTile(r, s, city) {
+  const p = s.picks[0];
+  return h("div", { class: "swap-tile tile-has-img" },
+    h("div", { class: "tile-img-container" },
+      h("img", { class: "tile-img", src: getPlaceImage(p.name, p.shared, s.kind), alt: "", loading: "lazy" }),
+      h("span", { class: "chip chip-overlay" }, `${p.shared[0] || s.kind} · ${city}`)),
+    h("div", { class: "tile-body" },
+      h("p", { class: "tile-pair" }, `${shortName(s.merchant)} → ${shortName(p.name)}`),
+      h("div", { class: "tier-change" }, h("s", {}, tiers(r, s.tier)), icon(ICON.arrow), h("span", { class: "brass" }, tiers(r, p.price_level))),
+      h("p", { class: "tile-text" }, `Rating ${s.rating} → ${p.rating}${s.saving.estimate ? " · estimate" : ""}`),
+      h("div", { class: "tile-save" }, `≈ ${money(r, s.saving.monthly_half)}`, h("small", {}, " / month"))));
+}
+
+function fillTiles(nyc, blr) {
+  const tiles = [
+    ...topSwaps(nyc).slice(0, blr ? 2 : 4).map((s) => sampleTile(nyc, s, "New York")),
+    ...(blr ? topSwaps(blr).slice(0, 2).map((s) => sampleTile(blr, s, "Bengaluru")) : []),
+  ];
+  if (!tiles.length) return;
+  $("sample-tiles").replaceChildren(...tiles);
+  $("tiles-note").textContent = `Top swaps from the ${blr ? "NYC and Bengaluru demo months" : "NYC demo month"}, if you swap 1 in 2 visits.`;
+}
+
+function fillAgentTrace(r) {
+  const t = r.trace;
+  const sum = (step) => t.filter((x) => x.step === step).reduce((a, x) => a + x.ms, 0);
+  const calls = (step) => t.filter((x) => x.step === step && x.meta && x.meta.endpoint).length;
+  const secs = (ms) => `${(ms / 1000).toFixed(1)}s`;
+  const skipped = r.skipped.length;
+  const food = r.summary.food_merchants;
+  const matched = t.filter((x) => x.step === "resolve" && ["ok", "cached"].includes(x.status)).length;
+  const asked = t.find((x) => x.step === "explain" && /items requested/.test(x.detail));
+  const explained = asked ? parseInt(asked.detail, 10) : r.swaps.reduce((a, s) => a + s.picks.length, 0);
+  const row = (text, ms, cls = "check") => h("li", { class: cls === "retry" ? "t-retry" : null },
+    icon(ICON[cls], `ic-${cls}`), h("span", { class: "t-text" }, ...[].concat(text)), h("span", { class: "t-ms" }, ms));
+  const rows = [
+    row(`Read ${r.summary.transactions} transactions`, ""),
+    row(`Cleaned ${food + skipped} merchants · ${food} dining, ${skipped} set aside`, secs(sum("clean"))),
+    row(`Matched ${matched} of ${food} places on Qloo`, plural(calls("resolve"), "call")),
+    row("Found taste twins · weighted signals 3 : 1 : 1", plural(calls("twins") + calls("recover"), "call")),
+  ];
+  // Prefer a recovery the model chose; otherwise show the honest give-up.
+  const recs = t.filter((x) => x.step === "recover" && !["ok", "iteration_cap"].includes(x.status));
+  const chose = recs.find((x) => x.status !== "give_up") || recs[0];
+  if (chose) {
+    const why = chose.status === "give_up" ? "nothing cheaper matched its rating → " : "thin matches → agent chose ";
+    rows.push(row([`${chose.target}: ${why}`, h("span", { class: "brass" }, chose.status)], "recovery", "retry"));
+  }
+  rows.push(row("Ranked swaps · rating floor applied", ""));
+  rows.push(row(`Wrote ${explained} explanations · every name verified`, secs(sum("explain"))));
+  $("agent-trace").replaceChildren(...rows);
+  $("ag-sub").textContent = `NYC demo run · ${hhmm(r.ran_at)}`;
+}
+
+function fillSampleCard(report) {
+  const s = topSwaps(report)[0];
   if (!s) return;
   const p = s.picks[0];
   const card = $("sample-card");
@@ -312,21 +390,26 @@ function follow(runId, label) {
   es.addEventListener("start", (e) => {
     const meta = JSON.parse(e.data);
     $("run-sub").textContent = meta.replayed_at ? `replay of ${hhmm(meta.replayed_at)} run` : "live · calling Qloo";
+    if (meta.replayed_at) pulse.stop(); // a replay makes no calls; don't claim it is asking Qloo
   });
   es.addEventListener("step", (e) => {
     const ev = JSON.parse(e.data);
     pulse.set(ev.step);
     const li = stepItem(ev);
-    $("timeline").append(li);
-    li.scrollIntoView({ block: "nearest" });
+    const list = $("timeline");
+    list.append(li);
+    // Scroll the list, never the page: scrollIntoView moved the whole window on every step.
+    list.scrollTo({ top: list.scrollHeight, behavior: REDUCED ? "auto" : "smooth" });
   });
   es.addEventListener("done", async () => {
     es.close();
     pulse.stop();
     try {
-      const res = await fetch(`/api/runs/${runId}/report`);
+      const [res] = await Promise.all([fetch(`/api/runs/${runId}/report`), new Promise((ok) => setTimeout(ok, REDUCED ? 0 : 500))]);
       if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`);
-      renderResults(await res.json());
+      const report = await res.json();
+      if (state.es !== es || $("running").hidden) return; // the user went back meanwhile
+      renderResults(report);
     } catch (err) {
       runError(`Couldn't load the report: ${err.message}`);
     }
@@ -443,7 +526,7 @@ function renderHero() {
   const twinImg = getPlaceImage(p.name, p.shared, s.kind);
 
   const copy = h("div", { class: "res-hero-copy" },
-    h("p", { class: "eyebrow" }, `Biggest saving · ${state.heroIndex + 1} of ${pool.length}`),
+    h("p", { class: "eyebrow" }, `Biggest saving · option ${state.heroIndex + 1} of ${pool.length} for ${origin}`),
     h("h2", { class: "h2" }, `Instead of ${origin}, `, h("span", { class: "em-brass" }, p.name), "."),
     h("div", { class: "chip-row" }, [...p.shared.slice(0, 3), p.label].filter(Boolean).map((c) => h("span", { class: "chip" }, c))),
     h("p", { class: "body" }, p.why),
