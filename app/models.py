@@ -81,6 +81,9 @@ class Twin(Place):
 
 class RankedTwin(Twin):
     score: float
+    jaccard: float = 0.0
+    shared: list[str] = []  # meaningful cuisine/genre concepts shared with the origin
+    tiers_down: int = 1
 
 
 class Resolution(BaseModel):
@@ -98,9 +101,10 @@ class TierInfo(BaseModel):
 
 
 class Saving(BaseModel):
-    monthly_usd: float
-    origin_avg: float
-    target_avg: float
+    monthly_usd_full: float  # every visit swapped; kept in report.json, not headlined
+    monthly_usd_half: float  # 1 in 2 visits swapped; the headline number
+    origin_avg: float  # the user's own average bill at this merchant
+    target_avg: float  # the user's average bill at the twin's tier (or fallback)
     visits_per_month: float
     estimate: bool
     note: str = ""
