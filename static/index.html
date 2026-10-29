@@ -32,6 +32,9 @@
       <div class="pl-bar" role="progressbar" aria-label="Loading Pareil"><div class="pl-fill"></div></div>
       <span id="pl-status" class="pl-fade mono">reading the taste graph</span>
     </div>
+    <button type="button" id="pl-skip" class="pl-skip" aria-label="Skip introduction">
+      Skip intro <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
   </div>
 </div>
 
@@ -84,17 +87,27 @@
             <span class="label">Sample swap</span>
             <span class="pill-line" id="sc-city">New York</span>
           </div>
-          <div class="place">
-            <div class="place-row"><span class="place-name" id="sc-from">Carbone</span><span class="tiers muted-tiers" id="sc-from-tier">$$$$</span></div>
-            <p class="place-meta" id="sc-from-meta">3 visits this month &nbsp;·&nbsp; avg $180 a visit &nbsp;·&nbsp; rated 4.5</p>
+          <div class="place place-with-img">
+            <div class="place-thumb-wrap">
+              <img id="sc-from-img" class="place-thumb" src="/images/carbone.jpg" alt="Carbone" loading="lazy">
+            </div>
+            <div class="place-info">
+              <div class="place-row"><span class="place-name" id="sc-from">Carbone</span><span class="tiers muted-tiers" id="sc-from-tier">$$$$</span></div>
+              <p class="place-meta" id="sc-from-meta">3 visits this month &nbsp;·&nbsp; avg $180 a visit &nbsp;·&nbsp; rated 4.5</p>
+            </div>
           </div>
           <div class="tier-divider">
             <span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg><b id="sc-down">one tier down</b><span></span>
           </div>
-          <div class="place place-twin">
-            <div class="place-row"><span class="place-name" id="sc-to">Via Carota</span><span class="tiers brass" id="sc-to-tier">$$$</span></div>
-            <p class="place-meta" id="sc-to-meta">Rated 4.6 &nbsp;·&nbsp; Italian &nbsp;·&nbsp; date night &nbsp;·&nbsp; West Village</p>
-            <p class="place-why" id="sc-why">Matched on your taste for <strong>Carbone</strong> (41%) and <strong>Katz’s</strong> (30%).</p>
+          <div class="place place-twin place-with-img">
+            <div class="place-thumb-wrap">
+              <img id="sc-to-img" class="place-thumb" src="/images/via-carota.jpg" alt="Via Carota" loading="lazy">
+            </div>
+            <div class="place-info">
+              <div class="place-row"><span class="place-name" id="sc-to">Via Carota</span><span class="tiers brass" id="sc-to-tier">$$$</span></div>
+              <p class="place-meta" id="sc-to-meta">Rated 4.6 &nbsp;·&nbsp; Italian &nbsp;·&nbsp; date night &nbsp;·&nbsp; West Village</p>
+              <p class="place-why" id="sc-why">Matched on your taste for <strong>Carbone</strong> (41%) and <strong>Katz’s</strong> (30%).</p>
+            </div>
           </div>
           <div class="swapcard-foot">
             <div>
@@ -178,10 +191,50 @@
       </button>
     </div>
     <div class="card-grid">
-      <div class="swap-tile"><span class="chip">Italian · date night</span><div class="tier-change"><s>$$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$$</span></div><p class="tile-text">Rating 4.5 → 4.6</p><div class="tile-save">≈ $150<small> / month</small></div></div>
-      <div class="swap-tile"><span class="chip">Craft beer · late night</span><div class="tier-change"><s>$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$</span></div><p class="tile-text">Rating 4.3 → 4.4</p><div class="tile-save">≈ $60<small> / month</small></div></div>
-      <div class="swap-tile"><span class="chip">Specialty coffee · work-friendly</span><div class="tier-change"><s>$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$</span></div><p class="tile-text">Rating 4.6 → 4.6</p><div class="tile-save">≈ $35<small> / month</small></div></div>
-      <div class="swap-tile"><span class="chip">Brunch · weekend</span><div class="tier-change"><s>$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$</span></div><p class="tile-text">Rating 4.4 → 4.5</p><div class="tile-save">≈ $48<small> / month</small></div></div>
+      <div class="swap-tile tile-has-img">
+        <div class="tile-img-container">
+          <img class="tile-img" src="/images/sample-italian.jpg" alt="Italian date night" loading="lazy">
+          <span class="chip chip-overlay">Italian · date night</span>
+        </div>
+        <div class="tile-body">
+          <div class="tier-change"><s>$$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$$</span></div>
+          <p class="tile-text">Rating 4.5 → 4.6</p>
+          <div class="tile-save">≈ $150<small> / month</small></div>
+        </div>
+      </div>
+      <div class="swap-tile tile-has-img">
+        <div class="tile-img-container">
+          <img class="tile-img" src="/images/sample-beer.jpg" alt="Craft beer late night" loading="lazy">
+          <span class="chip chip-overlay">Craft beer · late night</span>
+        </div>
+        <div class="tile-body">
+          <div class="tier-change"><s>$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$</span></div>
+          <p class="tile-text">Rating 4.3 → 4.4</p>
+          <div class="tile-save">≈ $60<small> / month</small></div>
+        </div>
+      </div>
+      <div class="swap-tile tile-has-img">
+        <div class="tile-img-container">
+          <img class="tile-img" src="/images/sample-coffee.jpg" alt="Specialty coffee work-friendly" loading="lazy">
+          <span class="chip chip-overlay">Specialty coffee · work-friendly</span>
+        </div>
+        <div class="tile-body">
+          <div class="tier-change"><s>$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$</span></div>
+          <p class="tile-text">Rating 4.6 → 4.6</p>
+          <div class="tile-save">≈ $35<small> / month</small></div>
+        </div>
+      </div>
+      <div class="swap-tile tile-has-img">
+        <div class="tile-img-container">
+          <img class="tile-img" src="/images/sample-brunch.jpg" alt="Brunch weekend" loading="lazy">
+          <span class="chip chip-overlay">Brunch · weekend</span>
+        </div>
+        <div class="tile-body">
+          <div class="tier-change"><s>$$$</s><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="brass">$$</span></div>
+          <p class="tile-text">Rating 4.4 → 4.5</p>
+          <div class="tile-save">≈ $48<small> / month</small></div>
+        </div>
+      </div>
     </div>
     <p class="fine-note spaced">Illustrative examples. Real swaps and estimates come from your own spending.</p>
   </section>

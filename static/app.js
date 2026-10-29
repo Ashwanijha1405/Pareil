@@ -50,38 +50,121 @@ const hhmm = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", mi
 const shortName = (name) => name.split(/ [-|·] | \| /)[0];
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+// ---- cafe & restaurant images -------------------------------------------------------------
+const PLACE_IMAGES = {
+  "carbone": "/images/carbone.jpg",
+  "via carota": "/images/via-carota.jpg",
+  "ci siamo": "/images/ci-siamo.jpg",
+  "raoul's": "/images/raouls.jpg",
+  "raouls": "/images/raouls.jpg",
+  "le gigot": "/images/le-gigot.jpg",
+  "joseph leonard": "/images/joseph-leonard.jpg",
+  "katz's": "/images/katzs.jpg",
+  "katzs": "/images/katzs.jpg",
+  "katz's delicatessen": "/images/katzs.jpg",
+  "russ & daughters": "/images/russ-and-daughters.jpg",
+  "joe's pizza": "/images/joes-pizza.jpg",
+  "levain bakery": "/images/levain-bakery.jpg",
+  "au cheval": "/images/au-cheval.jpg",
+  "misi": "/images/misi.jpg",
+  "malaparte": "/images/malaparte.jpg",
+  "los tacos": "/images/los-tacos.jpg",
+  "the fatty bao": "/images/fatty-bao.jpg",
+  "fatty bao": "/images/fatty-bao.jpg",
+  "araku": "/images/araku-coffee.jpg",
+  "araku coffee": "/images/araku-coffee.jpg",
+  "hole in the wall": "/images/hole-in-the-wall.jpg",
+  "matteo coffea": "/images/matteo-coffea.jpg",
+  "sharief bhai": "/images/sharief-bhai.jpg",
+  "toit": "/images/toit.jpg",
+  "smoke house deli": "/images/smoke-house-deli.jpg",
+  "leon's burgers": "/images/leons-burgers.jpg",
+  "thai basil": "/images/thai-basil.jpg",
+  "daily sushi": "/images/daily-sushi.jpg",
+};
+
+function getPlaceImage(name = "", concepts = [], kind = "") {
+  const low = String(name).toLowerCase().replace(/['’]/g, "");
+  for (const [k, src] of Object.entries(PLACE_IMAGES)) {
+    const kLow = k.replace(/['’]/g, "");
+    if (low.includes(kLow) || kLow.includes(low)) return src;
+  }
+  const allTags = [low, ...(concepts || []), kind].join(" ").toLowerCase();
+  if (/coffee|cafe|espresso|roast|bakery|croissant/i.test(allTags)) return "/images/sample-coffee.jpg";
+  if (/pizza|italian|pasta|trattoria|risotto/i.test(allTags)) return "/images/via-carota.jpg";
+  if (/beer|brew|pub|bar|cocktail|ale/i.test(allTags)) return "/images/sample-beer.jpg";
+  if (/brunch|breakfast|waffle|pancake|egg/i.test(allTags)) return "/images/hole-in-the-wall.jpg";
+  if (/burger|sandwich|wing|fry/i.test(allTags)) return "/images/leons-burgers.jpg";
+  if (/deli|pastrami|bagel|smoke/i.test(allTags)) return "/images/katzs.jpg";
+  if (/asian|sushi|thai|bao|noodle|ramen|dim sum/i.test(allTags)) return "/images/fatty-bao.jpg";
+  if (/indian|biryani|curry|mughlai/i.test(allTags)) return "/images/sharief-bhai.jpg";
+  if (/french|bistro/i.test(allTags)) return "/images/le-gigot.jpg";
+  return "/images/cafe-default.jpg";
+}
+
 // ---- preloader ----------------------------------------------------------------------------
-// First page load: shown until fonts + demo status are ready, at most 1.2 s (never forces a wait).
-// Runs: the first run of the session shows it until the first SSE step; later runs only if
-// nothing has arrived after 1 s.
+// Initial load only: 5.5s intro with skip button and cycling messages.
+// Navigating between pages/views NEVER shows the preloader again.
 const preloader = {
   shownAt: performance.now(),
   visible: true,
   timer: null,
+  msgTimer: null,
+  startIntro() {
+    if (sessionStorage.getItem("pareil_preloaded")) {
+      this.hide(0);
+      return;
+    }
+    const msgs = [
+      "reading the taste graph",
+      "indexing culinary fingerprints",
+      "matching price tier differentials",
+      "curating your taste twins",
+    ];
+    let idx = 0;
+    this.msgTimer = setInterval(() => {
+      idx = (idx + 1) % msgs.length;
+      const statusEl = $("pl-status");
+      if (statusEl) {
+        statusEl.style.opacity = "0";
+        setTimeout(() => {
+          statusEl.textContent = msgs[idx];
+          statusEl.style.opacity = "1";
+        }, 200);
+      }
+    }, 1400);
+
+    // 5.5s intro duration
+    this.timer = setTimeout(() => {
+      this.hide(0);
+    }, 5500);
+  },
   show(text) {
+    if (sessionStorage.getItem("pareil_preloaded")) return;
     clearTimeout(this.timer);
+    clearInterval(this.msgTimer);
     const el = $("preloader");
+    if (!el) return;
     $("pl-status").textContent = text || "reading the taste graph";
     el.classList.remove("play");
-    void el.offsetWidth; // restart the CSS animations
+    void el.offsetWidth;
     el.classList.add("play");
     el.classList.remove("hide");
     document.body.classList.add("loading");
     this.visible = true;
     this.shownAt = performance.now();
   },
-  hide(minMs = REDUCED ? 0 : 450) {
+  hide(minMs = 0) {
     clearTimeout(this.timer);
+    clearInterval(this.msgTimer);
+    sessionStorage.setItem("pareil_preloaded", "1");
     const wait = Math.max(0, minMs - (performance.now() - this.shownAt));
     this.timer = setTimeout(() => {
-      $("preloader").classList.add("hide");
+      const el = $("preloader");
+      if (el) el.classList.add("hide");
       document.body.classList.remove("loading");
       this.visible = false;
     }, wait);
-  },
-  showAfter(ms, text) {
-    clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.show(text), ms);
   },
 };
 
@@ -151,10 +234,14 @@ async function fillSampleCard() {
     $("sc-from").textContent = shortName(s.qloo_name);
     $("sc-from-tier").textContent = tiers(report, s.tier);
     $("sc-from-meta").textContent = `${plural(s.visits, "visit")} this month · avg ${money(report, s.avg_bill)} a visit · rated ${s.rating.toFixed(1)}`;
+    const fromImg = $("sc-from-img");
+    if (fromImg) { fromImg.src = getPlaceImage(s.qloo_name); fromImg.alt = shortName(s.qloo_name); }
     $("sc-down").textContent = p.tiers_down >= 2 ? "two tiers down" : "one tier down";
     $("sc-to").textContent = p.name;
     $("sc-to-tier").textContent = tiers(report, p.price_level);
     $("sc-to-meta").textContent = [`Rated ${p.rating}`, ...p.shared.slice(0, 2)].join(" · ");
+    const toImg = $("sc-to-img");
+    if (toImg) { toImg.src = getPlaceImage(p.name, p.shared, s.kind); toImg.alt = p.name; }
     $("sc-why").replaceChildren(...driverSentence(p));
     $("sc-save").textContent = `≈ ${money(report, s.saving.monthly_half)}`;
     $("sc-note").textContent = `From the NYC demo run at ${hhmm(report.ran_at)} · if you swap 1 in 2 visits${s.saving.estimate ? " · estimate" : ""}`;
@@ -208,16 +295,12 @@ function uploadFile(file) {
 function follow(runId, label) {
   state.runs += 1;
   if (state.es) state.es.close();
-  if (state.runs === 1) preloader.show("starting the agent");
-  else preloader.showAfter(1000, "waiting for the agent");
 
   show("running");
   $("timeline").replaceChildren();
   $("run-error").hidden = true;
   $("run-title").textContent = "Agent trace";
   $("run-sub").textContent = label;
-  let first = true;
-  const firstEvent = () => { if (first) { first = false; preloader.hide(); } };
 
   const es = new EventSource(`/api/runs/${runId}/events`);
   state.es = es;
@@ -226,14 +309,12 @@ function follow(runId, label) {
     $("run-sub").textContent = meta.replayed_at ? `replay of ${hhmm(meta.replayed_at)} run` : "live · calling Qloo";
   });
   es.addEventListener("step", (e) => {
-    firstEvent();
     const li = stepItem(JSON.parse(e.data));
     $("timeline").append(li);
     li.scrollIntoView({ block: "nearest" });
   });
   es.addEventListener("done", async () => {
     es.close();
-    firstEvent();
     try {
       const res = await fetch(`/api/runs/${runId}/report`);
       if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`);
@@ -244,7 +325,6 @@ function follow(runId, label) {
   });
   es.addEventListener("error", (e) => {
     es.close();
-    firstEvent();
     let message = "The connection to the run was lost. Go back and try again.";
     try { if (e.data) message = JSON.parse(e.data).error; } catch {}
     runError(message);
@@ -329,6 +409,8 @@ function renderHero() {
   const p = pool[state.heroIndex];
   const last = state.heroIndex >= pool.length - 1;
   const origin = shortName(s.qloo_name);
+  const originImg = getPlaceImage(origin);
+  const twinImg = getPlaceImage(p.name, p.shared, s.kind);
 
   const copy = h("div", { class: "res-hero-copy" },
     h("p", { class: "eyebrow" }, `Biggest saving · ${state.heroIndex + 1} of ${pool.length}`),
@@ -345,14 +427,18 @@ function renderHero() {
 
   const card = h("div", { class: "swapcard" },
     h("div", { class: "swapcard-head" }, h("span", { class: "label" }, "Your swap"), h("span", { class: "pill-line" }, r.currency === "INR" ? "Bengaluru" : "New York")),
-    h("div", { class: "place" },
-      h("div", { class: "place-row" }, h("span", { class: "place-name" }, origin), h("span", { class: "tiers muted-tiers" }, tiers(r, s.tier))),
-      h("p", { class: "place-meta" }, `${plural(s.visits, "visit")} · avg ${money(r, s.avg_bill)} a visit · rated ${s.rating.toFixed(1)}`)),
+    h("div", { class: "place place-with-img" },
+      h("div", { class: "place-thumb-wrap" }, h("img", { class: "place-thumb", src: originImg, alt: origin, loading: "lazy" })),
+      h("div", { class: "place-info" },
+        h("div", { class: "place-row" }, h("span", { class: "place-name" }, origin), h("span", { class: "tiers muted-tiers" }, tiers(r, s.tier))),
+        h("p", { class: "place-meta" }, `${plural(s.visits, "visit")} · avg ${money(r, s.avg_bill)} a visit · rated ${s.rating.toFixed(1)}`))),
     h("div", { class: "tier-divider" }, h("span"), icon(ICON.down), h("b", {}, p.tiers_down >= 2 ? "two tiers down" : "one tier down"), h("span")),
-    h("div", { class: "place place-twin" },
-      h("div", { class: "place-row" }, h("span", { class: "place-name" }, p.name), h("span", { class: "tiers brass" }, tiers(r, p.price_level))),
-      h("p", { class: "place-meta" }, `Rated ${p.rating} vs ${s.rating.toFixed(1)}`),
-      h("p", { class: "place-why" }, ...driverSentence(p))),
+    h("div", { class: "place place-twin place-with-img" },
+      h("div", { class: "place-thumb-wrap" }, h("img", { class: "place-thumb", src: twinImg, alt: p.name, loading: "lazy" })),
+      h("div", { class: "place-info" },
+        h("div", { class: "place-row" }, h("span", { class: "place-name" }, p.name), h("span", { class: "tiers brass" }, tiers(r, p.price_level))),
+        h("p", { class: "place-meta" }, `Rated ${p.rating} vs ${s.rating.toFixed(1)}`),
+        h("p", { class: "place-why" }, ...driverSentence(p)))),
     h("div", { class: "swapcard-foot" },
       h("div", {}, h("div", { class: "label-plain" }, "Estimated saving"),
         h("div", { class: "saving" }, `≈ ${money(r, s.saving.monthly_half)}`, h("small", {}, " / month"))),
@@ -378,26 +464,35 @@ function renderGrid() {
   if (state.filter === "budget") {
     for (const a of r.already_budget) {
       if (!matches(a.qloo_name, a.merchant)) continue;
-      tiles.push(h("div", { class: "swap-tile" },
-        h("span", { class: "chip" }, "Already budget-friendly"),
-        h("p", { class: "tile-name" }, shortName(a.qloo_name)),
-        h("div", { class: "tier-change" }, h("span", { class: "brass" }, tiers(r, a.tier))),
-        h("p", { class: "tile-text" }, `${plural(a.visits, "visit")} · avg ${money(r, a.avg_bill)}`)));
+      const img = getPlaceImage(a.qloo_name, [], "budget");
+      tiles.push(h("div", { class: "swap-tile tile-has-img" },
+        h("div", { class: "tile-img-container" },
+          h("img", { class: "tile-img", src: img, alt: a.qloo_name, loading: "lazy" }),
+          h("span", { class: "chip chip-overlay" }, "Already budget-friendly")),
+        h("div", { class: "tile-body" },
+          h("p", { class: "tile-name" }, shortName(a.qloo_name)),
+          h("div", { class: "tier-change" }, h("span", { class: "brass" }, tiers(r, a.tier))),
+          h("p", { class: "tile-text" }, `${plural(a.visits, "visit")} · avg ${money(r, a.avg_bill)}`))));
     }
   } else {
     for (const s of topSwaps(r)) {
       if (state.filter !== "all" && s.kind !== state.filter) continue;
       for (const p of s.picks) {
         if (p === heroPick || !matches(p.name, s.qloo_name, s.merchant, ...p.shared)) continue;
-        tiles.push(h("a", { class: "swap-tile", href: mapsUrl(p), target: "_blank", rel: "noopener",
+        const img = getPlaceImage(p.name, p.shared, s.kind);
+        const chipText = p.shared.slice(0, 2).join(" · ") || "Taste match";
+        tiles.push(h("a", { class: "swap-tile tile-has-img", href: mapsUrl(p), target: "_blank", rel: "noopener",
           "aria-label": `${p.name}, instead of ${shortName(s.qloo_name)}. Opens a map.` },
-          h("span", { class: "chip" }, p.shared.slice(0, 2).join(" · ") || "Taste match"),
-          h("div", {}, h("p", { class: "tile-name" }, p.name)),
-          h("p", { class: "tile-meta" }, `for ${shortName(s.qloo_name)}`, p.label ? h("span", { class: "tag-two" }, ` · ${p.label}`) : ""),
-          h("div", { class: "tier-change" }, h("s", {}, tiers(r, s.tier)), icon(ICON.arrow), h("span", { class: "brass" }, tiers(r, p.price_level))),
-          h("p", { class: "tile-text" }, `Rating ${s.rating.toFixed(1)} → ${p.rating}`),
-          h("div", { class: "tile-save" }, `≈ ${money(r, s.saving.monthly_half)}`,
-            h("small", {}, ` / month at ${shortName(s.qloo_name)}`))));
+          h("div", { class: "tile-img-container" },
+            h("img", { class: "tile-img", src: img, alt: p.name, loading: "lazy" }),
+            h("span", { class: "chip chip-overlay" }, chipText)),
+          h("div", { class: "tile-body" },
+            h("p", { class: "tile-name" }, p.name),
+            h("p", { class: "tile-meta" }, `for ${shortName(s.qloo_name)}`, p.label ? h("span", { class: "tag-two" }, ` · ${p.label}`) : ""),
+            h("div", { class: "tier-change" }, h("s", {}, tiers(r, s.tier)), icon(ICON.arrow), h("span", { class: "brass" }, tiers(r, p.price_level))),
+            h("p", { class: "tile-text" }, `Rating ${s.rating.toFixed(1)} → ${p.rating}`),
+            h("div", { class: "tile-save" }, `≈ ${money(r, s.saving.monthly_half)}`,
+              h("small", {}, ` / month at ${shortName(s.qloo_name)}`))))));
       }
     }
   }
@@ -444,11 +539,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const linked = location.hash.slice(1); // /#nyc or /#blr opens a demo directly
   const deepLink = linked === "nyc" || linked === "blr";
 
-  const fontsReady = (document.fonts ? document.fonts.ready : Promise.resolve()).catch(() => {});
-  const demosReady = loadDemos();
-  const cap = new Promise((ok) => setTimeout(ok, 1200));
-  if (deepLink) runDemo(linked);
-  else Promise.race([Promise.all([fontsReady, demosReady]), cap]).then(() => preloader.hide());
+  loadDemos();
+
+  const skipBtn = $("pl-skip");
+  if (skipBtn) skipBtn.addEventListener("click", () => preloader.hide(0));
+
+  if (deepLink) {
+    preloader.hide(0);
+    runDemo(linked);
+  } else {
+    preloader.startIntro();
+  }
 
   document.querySelectorAll("[data-demo]").forEach((b) => b.addEventListener("click", () => runDemo(b.dataset.demo)));
   $("file").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) uploadFile(f); });
