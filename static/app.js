@@ -161,9 +161,13 @@ const preloader = {
     const wait = Math.max(0, minMs - (performance.now() - this.shownAt));
     this.timer = setTimeout(() => {
       const el = $("preloader");
-      if (el) el.classList.add("hide");
+      if (el) {
+        el.classList.add("hide");
+        setTimeout(() => { el.style.display = "none"; }, 450);
+      }
       document.body.classList.remove("loading");
       this.visible = false;
+      show("landing");
     }, wait);
   },
 };
@@ -492,7 +496,7 @@ function renderGrid() {
             h("div", { class: "tier-change" }, h("s", {}, tiers(r, s.tier)), icon(ICON.arrow), h("span", { class: "brass" }, tiers(r, p.price_level))),
             h("p", { class: "tile-text" }, `Rating ${s.rating.toFixed(1)} → ${p.rating}`),
             h("div", { class: "tile-save" }, `≈ ${money(r, s.saving.monthly_half)}`,
-              h("small", {}, ` / month at ${shortName(s.qloo_name)}`))))));
+              h("small", {}, ` / month at ${shortName(s.qloo_name)}`)))));
       }
     }
   }
