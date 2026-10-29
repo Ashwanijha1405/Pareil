@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pareil · same taste, smaller bill</title>
+<meta name="description" content="Pareil finds places with the same vibe as the ones you spend at, one price tier cheaper, using Qloo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%231C1F1B'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='36' fill='%23F4F2EC' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+
+<div class="window">
+  <nav class="rail" aria-label="Main">
+    <a class="mark" href="#" data-nav="home" aria-label="Pareil home">P</a>
+    <a class="rail-btn" href="#" data-nav="home" aria-label="Overview" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+    </a>
+    <a class="rail-btn" href="#more" data-nav="swaps" aria-label="Swaps">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4L3 8l4 4"/><path d="M3 8h14"/><path d="M17 20l4-4-4-4"/><path d="M21 16H7"/></svg>
+    </a>
+    <a class="rail-btn" href="#summary" data-nav="savings" aria-label="Savings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+    </a>
+    <a class="rail-btn" href="#" data-nav="upload" aria-label="Upload spending">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+    </a>
+    <a class="rail-btn" href="#how" data-nav="how" aria-label="How we know (Qloo calls)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+    </a>
+  </nav>
+
+  <main class="content">
+
+    <!-- 1. START -->
+    <section id="start" class="state" aria-labelledby="start-title">
+      <div class="start-head">
+        <span class="mark big" aria-hidden="true">P</span>
+        <h1 id="start-title" class="display">Same taste. Smaller bill.</h1>
+        <p class="lede">Pareil reads where you spend, asks Qloo which places share their vibe, and keeps only the ones one price tier cheaper and rated at least as well.</p>
+      </div>
+      <div class="start-cards">
+        <button type="button" class="glass card start-card" data-demo="nyc">
+          <span class="card-kicker">Demo</span>
+          <span class="card-title">Try NYC demo</span>
+          <span class="card-sub">Carbone, Raoul's, Katz's and more · 41 transactions · USD</span>
+          <span class="card-status" data-status="nyc">Checking…</span>
+        </button>
+        <button type="button" class="glass card start-card" data-demo="blr">
+          <span class="card-kicker">Demo</span>
+          <span class="card-title">Try Bengaluru demo</span>
+          <span class="card-sub">Fatty Bao, ARAKU, Sharief Bhai and more · 30 transactions · INR</span>
+          <span class="card-status" data-status="blr">Checking…</span>
+        </button>
+        <label class="glass card start-card upload-card" for="file">
+          <span class="card-kicker">Your data</span>
+          <span class="card-title">Upload your spending (CSV)</span>
+          <span class="card-sub">Columns: <code>date, merchant, amount, city</code> (optional <code>currency</code>: USD or INR). Up to 300 rows, 200 KB. New York or Bengaluru.</span>
+          <span class="card-status">Choose a file</span>
+          <input id="file" type="file" accept=".csv,text/csv" class="visually-hidden">
+        </label>
+      </div>
+      <p id="start-error" class="alert" role="alert" hidden></p>
+      <p class="footnote">Places and ratings from Qloo · savings are estimates from your own spending</p>
+    </section>
+
+    <!-- 2. RUNNING -->
+    <section id="running" class="state" aria-labelledby="run-title" hidden>
+      <div class="glass panel run-panel">
+        <div class="run-head">
+          <div>
+            <h2 id="run-title" class="h2">Working on it</h2>
+            <p id="run-sub" class="muted small"></p>
+          </div>
+          <span id="run-count" class="pill">0 steps</span>
+        </div>
+        <ol id="timeline" class="timeline" aria-live="polite"></ol>
+        <p id="run-error" class="alert" role="alert" hidden></p>
+        <button type="button" id="run-back" class="btn-ghost" hidden>Back to start</button>
+      </div>
+    </section>
+
+    <!-- 3. RESULTS -->
+    <section id="results" class="state" aria-label="Your swaps" hidden>
+      <div class="topbar">
+        <div class="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <label for="q" class="visually-hidden">Search places or merchants</label>
+          <input id="q" type="search" placeholder="Search places or merchants" autocomplete="off">
+        </div>
+        <div class="segmented" role="group" aria-label="Filter by category">
+          <button type="button" aria-pressed="true" data-filter="all">All swaps</button>
+          <button type="button" aria-pressed="false" data-filter="restaurant">Restaurants</button>
+          <button type="button" aria-pressed="false" data-filter="cafe">Cafés</button>
+          <button type="button" aria-pressed="false" data-filter="deli">Delis</button>
+          <button type="button" aria-pressed="false" data-filter="budget">Budget already</button>
+        </div>
+        <span class="spacer"></span>
+        <span id="month-chip" class="chip"></span>
+        <div class="data-chip">
+          <span id="data-badge" class="badge" aria-hidden="true"></span>
+          <span class="data-text"><span id="data-title" class="strong small"></span><span id="data-sub" class="muted xsmall"></span></span>
+        </div>
+      </div>
+
+      <div id="replay-bar" class="glass replay-bar" hidden>
+        <span id="replay-text"></span>
+        <button type="button" id="run-live" class="btn-small">Run live</button>
+      </div>
+
+      <div class="main-area">
+        <div class="left-col">
+          <section class="glass panel" aria-labelledby="top-title">
+            <h2 id="top-title" class="h2 panel-title">Top swaps</h2>
+            <div id="top-swaps" class="stack"></div>
+          </section>
+          <section class="glass panel" aria-labelledby="where-title">
+            <h2 id="where-title" class="h2 panel-title">Where you spent</h2>
+            <ul id="where" class="where"></ul>
+          </section>
+        </div>
+
+        <div class="right-col">
+          <section id="hero" class="hero" aria-live="polite"></section>
+
+          <div id="summary" class="summary">
+            <div class="glass tile"><div class="muted small">If you swap 1 in 2 visits</div><div id="sum-save" class="serif big-num accent"></div><div id="sum-est" class="muted xsmall"></div></div>
+            <div class="glass tile"><div class="muted small">Swaps found</div><div id="sum-swaps" class="serif big-num"></div></div>
+            <div class="glass tile"><div class="muted small">Rating floor</div><div class="serif big-num">Never lower</div></div>
+          </div>
+
+          <section id="more" aria-labelledby="more-title">
+            <div class="section-head">
+              <h2 id="more-title" class="h2">More swaps that fit your taste</h2>
+              <button type="button" id="new-run" class="btn-small">New run</button>
+            </div>
+            <div id="more-grid" class="grid"></div>
+            <p id="more-empty" class="muted small" hidden>Nothing matches this filter.</p>
+          </section>
+
+          <details id="how" class="glass panel how">
+            <summary class="h2">How we know <span id="how-count" class="muted small"></span></summary>
+            <p class="muted small">Every Qloo call this run made: the endpoint, the parameters that matter, the status and the time. Weighted signals are your own places (origin weight 3, two others weight 1).</p>
+            <ol id="how-list" class="how-list"></ol>
+          </details>
+        </div>
+      </div>
+
+      <p class="footnote"><span id="foot-source"></span> · savings are estimates from your own spending · places and ratings from Qloo</p>
+    </section>
+  </main>
+</div>
+</body>
+</html>

@@ -27,6 +27,7 @@ MAX_QLOO_CALLS = 40
 MAX_RECOVERY_ITERS = 3
 MIN_PICKS = 2
 PICKS_PER_MERCHANT = 3
+MAX_ALTERNATES = 3
 EXTRA_SIGNALS = 2
 
 Action = Literal["broaden_signal", "allow_two_tiers_down", "widen_tags", "give_up"]
@@ -236,6 +237,7 @@ class Agent:
                 "avg_bill": m.avg_bill, "tier": tier.tier, "tier_source": tier.source,
                 "qloo_name": origin.name, "address": origin.address, "rating": origin.business_rating,
                 "concepts": sorted(rank.food_concepts(origin)), "branch_note": res.branch_note,
+                "kind": self._kind(m.cm.category, rank.food_concepts(origin)),
                 "twins_path": paths, "signals": [names.get(e, e) for e in [origin.entity_id] + state.extras],
                 "rating_floor": rank.rating_floor(origin), "recovery": state.decisions,
                 "hard_to_beat": state.hard_to_beat,
@@ -244,9 +246,11 @@ class Agent:
                 "_per_month": savings.visits_per_month(m.visits, first, last),
             })
 
-        for s, picks in zip(swaps, rank.dedupe(candidates, PICKS_PER_MERCHANT)):
-            s["_picks"] = picks
+        for s, owned in zip(swaps, rank.dedupe(candidates, n=None)):
+            picks, alternates = owned[:PICKS_PER_MERCHANT], owned[PICKS_PER_MERCHANT:PICKS_PER_MERCHANT + MAX_ALTERNATES]
             s["picks"] = [self._pick_dict(p) for p in picks]
+            s["alternates"] = [self._pick_dict(p) for p in alternates]  # shown when the user says "Not my vibe"
+            s["_ranked"], s["_outs"] = picks + alternates, s["picks"] + s["alternates"]
             s["status"] = "ok" if len(picks) >= MIN_PICKS else (
                 "few_twins_after_dedupe" if s["candidates_before_dedupe"] >= MIN_PICKS else "few_twins")
             s["saving"] = (savings.estimate(s["avg_bill"], picks[0].price_level, known, s["_per_month"],
@@ -257,7 +261,7 @@ class Agent:
 
         self._explain(swaps, names)
         for s in swaps:
-            for key in ("_origin", "_picks", "_signal_ids", "_per_month"):
+            for key in ("_origin", "_ranked", "_outs", "_signal_ids", "_per_month"):
                 s.pop(key)
 
         with_saving = [s["saving"] for s in swaps if s["saving"]]
@@ -273,8 +277,39 @@ class Agent:
                 "qloo_calls": self.client.calls, "llm_enabled": self.llm.enabled,
             },
             "swaps": swaps, "already_budget": already_budget, "needs_review": needs_review,
-            "skipped": skipped, "trace": [t.model_dump() for t in self.trace],
+            "skipped": skipped, "where_you_spent": self._where_you_spent(swaps, already_budget, needs_review, skipped, by_raw),
+            "trace": [t.model_dump() for t in self.trace],
         }
+
+    @staticmethod
+    def _where_you_spent(swaps, already_budget, needs_review, skipped, by_raw) -> list[dict]:
+        """Every merchant with a short outcome note: food places first, then by total spend."""
+        rows = []
+        for s in swaps:
+            status = "swap" if s["picks"] else ("hard_to_beat" if s["hard_to_beat"] else "no_match")
+            note = {"hard_to_beat": f"Rated {s['rating_floor']:.1f} · nothing cheaper matched",
+                    "no_match": "No cheaper place with the same vibe"}.get(status, "")
+            rows.append({"name": s["qloo_name"], "visits": s["visits"], "avg_bill": s["avg_bill"], "status": status,
+                         "note": note})
+        rows += [{"name": a["qloo_name"], "visits": a["visits"], "avg_bill": a["avg_bill"], "status": "budget",
+                  "note": "Already budget-friendly"} for a in already_budget]
+        rows += [{"name": n["merchant"], "visits": n["visits"], "avg_bill": n["avg_bill"], "status": "review",
+                  "note": Agent._short_reason(n["reason"]), "reason": n["reason"]} for n in needs_review]
+        by_name: dict[str, list[float]] = defaultdict(list)
+        for sk in skipped:
+            by_name[sk["name"]] += [t.amount for t in by_raw[sk["raw"]]]
+        rows += [{"name": n, "visits": len(a), "avg_bill": round(mean(a), 2), "status": "skipped",
+                  "note": "Not a food place"} for n, a in by_name.items()]
+        return sorted(rows, key=lambda r: (r["status"] == "skipped", -r["visits"] * r["avg_bill"]))
+
+    @staticmethod
+    def _short_reason(reason: str) -> str:
+        for prefix, short in (("not found", "Not found in Qloo"), ("generic name", "Name too generic to match"),
+                              ("ambiguous", "Several places match"), ("no confident", "No confident match"),
+                              ("not analysed", "Not analysed (limit reached)"), ("city", "City not supported yet")):
+            if reason.lower().startswith(prefix):
+                return short
+        return reason[:40]
 
     @staticmethod
     def _group(food: list[CleanMerchant], by_raw: dict[str, list[Transaction]]) -> list[Merchant]:
@@ -291,6 +326,12 @@ class Agent:
             if cm.cleaned_by == "rules":
                 g.cm = g.cm.model_copy(update={"cleaned_by": "rules"})
         return list(groups.values())
+
+    @staticmethod
+    def _kind(category: str, concepts: set[str]) -> str:
+        if category in ("cafe", "bakery") or concepts & {"cafe", "coffee_shop", "bakery"}:
+            return "cafe"
+        return "deli" if "deli" in concepts else "restaurant"
 
     @staticmethod
     def _review(m: Merchant, reason: str) -> dict:
@@ -429,12 +470,12 @@ class Agent:
         items, allowed_by_id, facts = [], {}, {}
         for si, s in enumerate(swaps):
             origin: Place = s["_origin"]
-            for pi, p in enumerate(s["_picks"]):
+            for pi, p in enumerate(s["_ranked"]):
                 pid = f"s{si}p{pi}"
                 drivers = self._drivers(p, s["_signal_ids"], names)
                 top = drivers[:1]
                 allowed_by_id[pid] = {origin.name, p.name, *(d["place"] for d in top)}
-                facts[pid] = (origin, p, drivers, s["picks"][pi])
+                facts[pid] = (origin, p, drivers, s["_outs"][pi])
                 items.append({"pick_id": pid, "origin": origin.name, "swap": p.name,
                               "top_driver": top[0] if top else None,
                               "shared_cuisine": [concept_label(c) for c in sorted(
@@ -477,7 +518,8 @@ class Agent:
                 problem = self._check_text(why, allowed_by_id[pid], every_name,
                                            tuple(concept_label(c) for c in twin.shared))
             if why and not problem:
-                out["why"], out["why_source"] = BRACKET_RE.sub(r"\1", why), "llm"
+                text = re.sub(r"\b(Your|your) The ", r"\1 ", BRACKET_RE.sub(r"\1", why))  # "Your The Fatty Bao visits"
+                out["why"], out["why_source"] = text, "llm"
             else:
                 rejected += 1
                 out["why"], out["why_source"] = self._template(origin, twin, drivers), "template"
