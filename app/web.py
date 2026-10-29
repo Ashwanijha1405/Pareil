@@ -10,20 +10,22 @@ does live work and can sleep on a free host without breaking the demos.
 
 import asyncio
 import json
+import os
 import threading
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.agent import MAX_QLOO_CALLS, Agent
 from app.cache import Cache
-from app.config import REPO, load_settings
+from app.config import DEV_ORIGIN_REGEX, REPO, load_settings, parse_origins
 from app.ingest import IngestError, parse_csv
 from app.llm import LLM
 from app.qloo_client import QlooClient
-from app.runs import RateLimiter, Run, RunStore
+from app.runs import RateLimiter, Run, RunStore, client_ip_from
 
 MAX_UPLOAD_BYTES = 200_000
 MAX_ROWS = 300
@@ -47,8 +49,7 @@ def error(status: int, message: str) -> JSONResponse:
 
 
 def client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "")  # set by Render's proxy
-    return forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    return client_ip_from(request.headers.get("x-forwarded-for", ""), request.client.host if request.client else "unknown")
 
 
 def execute(run: Run, txns, live: bool) -> None:
@@ -83,6 +84,9 @@ def demo_txns(demo: str):
 
 
 app = FastAPI(title="Pareil", docs_url=None, redoc_url=None, openapi_url=None)
+# The frontend is served from another origin (Vercel); EventSource needs these headers too.
+app.add_middleware(CORSMiddleware, allow_origins=parse_origins(os.getenv("ALLOWED_ORIGINS", "")),
+                   allow_origin_regex=DEV_ORIGIN_REGEX, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 
 @app.middleware("http")

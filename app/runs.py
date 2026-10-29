@@ -66,6 +66,13 @@ class RunStore:
             del self._runs[next(iter(self._runs))]
 
 
+def client_ip_from(forwarded_for: str, peer: str) -> str:
+    """The rightmost X-Forwarded-For entry is the one the hosting proxy appended; entries to its left
+    come from the client and can be forged to dodge the per-IP limit."""
+    hops = [h.strip() for h in forwarded_for.split(",") if h.strip()]
+    return hops[-1] if hops else peer
+
+
 class RateLimiter:
     """Sliding window per client IP."""
 

@@ -27,6 +27,15 @@ def _env(name: str) -> str:
     return "" if value.startswith("your_") else value
 
 
+# Browser origins allowed to call the API: the production frontend (ALLOWED_ORIGINS) plus local dev.
+DEV_ORIGIN_REGEX = r"^http://(localhost|127\.0\.0\.1)(:\d+)?$"
+
+
+def parse_origins(raw: str) -> list[str]:
+    """"https://a.vercel.app, https://b.com/" -> ["https://a.vercel.app", "https://b.com"]."""
+    return [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+
+
 def load_settings() -> Settings:
     load_dotenv(REPO / ".env")
     settings = Settings(
