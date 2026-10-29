@@ -7,3 +7,6 @@ __pycache__/
 
 # Raw Qloo API responses (local only)
 qloo_raw/
+
+# Generated reports (contain spending data)
+report.json

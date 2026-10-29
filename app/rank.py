@@ -27,6 +27,23 @@ def same_brand(a: str, b: str) -> bool:
     return na == nb or na.startswith(nb + " ") or nb.startswith(na + " ")
 
 
+def drop_reasons(origin: Place, twins: list[Twin], floor: float, exclude_ids: set[str] = frozenset()) -> dict[str, int]:
+    """Why twins were filtered out; the same checks as pick(), counted instead of applied."""
+    counts = {"is_origin": 0, "already_visited": 0, "same_brand": 0, "no_rating": 0, "rating_below_floor": 0}
+    for t in twins:
+        if t.entity_id == origin.entity_id:
+            counts["is_origin"] += 1
+        elif t.entity_id in exclude_ids:
+            counts["already_visited"] += 1
+        elif same_brand(t.name, origin.name):
+            counts["same_brand"] += 1
+        elif t.business_rating is None:
+            counts["no_rating"] += 1
+        elif t.business_rating < floor:
+            counts["rating_below_floor"] += 1
+    return {k: v for k, v in counts.items() if v}
+
+
 def pick(origin: Place, twins: list[Twin], floor: float, exclude_ids: set[str] = frozenset(), n: int = 3) -> list[RankedTwin]:
     kept = [
         t for t in twins
