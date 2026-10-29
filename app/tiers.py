@@ -7,6 +7,8 @@ Rule, in order:
 3. otherwise fixed per-bill bands: <=$15 -> 1, <=$35 -> 2, <=$75 -> 3, else 4   ("inferred_fixed_bands")
 
 Only merchants with a Qloo tier feed rule 2, so an inferred tier never shapes another inference.
+Merchants where the user already spends like a lower tier (own average bill falls in a lower
+fixed band than Qloo's tier, e.g. Katz's: tier 3, $32.90 a bill) are left out of the averages.
 Log scale because tiers are multiplicative: $40 is nearer $30 than $60.
 """
 
@@ -19,13 +21,27 @@ from app.models import TierInfo
 FIXED_BANDS = ((15.0, 1), (35.0, 2), (75.0, 3))
 
 
-def known_amounts(amounts_by_merchant: dict[str, list[float]], qloo_tiers: dict[str, int | None]) -> dict[int, list[float]]:
+def spend_band(avg: float) -> int:
+    for limit, tier in FIXED_BANDS:
+        if avg <= limit:
+            return tier
+    return 4
+
+
+def known_amounts(amounts_by_merchant: dict[str, list[float]],
+                  qloo_tiers: dict[str, int | None]) -> tuple[dict[int, list[float]], list[str]]:
+    """Bills per Qloo tier, and the merchants left out because the user spends like a lower tier there."""
     known: dict[int, list[float]] = defaultdict(list)
+    excluded = []
     for merchant, amounts in amounts_by_merchant.items():
         tier = qloo_tiers.get(merchant)
-        if tier:
-            known[tier].extend(amounts)
-    return dict(known)
+        if not tier or not amounts:
+            continue
+        if spend_band(mean(amounts)) < tier:
+            excluded.append(merchant)
+            continue
+        known[tier].extend(amounts)
+    return dict(known), excluded
 
 
 def assign(price_level: int | None, merchant_avg: float, known: dict[int, list[float]]) -> TierInfo:
@@ -36,7 +52,4 @@ def assign(price_level: int | None, merchant_avg: float, known: dict[int, list[f
         target = math.log(merchant_avg)
         tier = min(averages, key=lambda t: (abs(math.log(averages[t]) - target), t))
         return TierInfo(tier=tier, source="inferred_from_user_spend")
-    for limit, tier in FIXED_BANDS:
-        if merchant_avg <= limit:
-            return TierInfo(tier=tier, source="inferred_fixed_bands")
-    return TierInfo(tier=4, source="inferred_fixed_bands")
+    return TierInfo(tier=spend_band(merchant_avg), source="inferred_fixed_bands")

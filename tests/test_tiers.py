@@ -30,8 +30,19 @@ def test_fixed_bands(avg, tier):
 
 
 def test_known_amounts_ignores_merchants_without_qloo_tier():
-    known = known_amounts(
+    known, excluded = known_amounts(
         {"carbone": [200.0, 220.0], "joes": [9.0], "mystery": [50.0]},
         {"carbone": 4, "joes": 1, "mystery": None},
     )
     assert known == {4: [200.0, 220.0], 1: [9.0]}
+    assert excluded == []
+
+
+def test_known_amounts_excludes_merchants_spent_like_a_lower_tier():
+    # Katz's: Qloo tier 3, but $32.90 a bill is band 2, so it would drag the tier-3 average down.
+    known, excluded = known_amounts(
+        {"katz": [31.60, 34.20], "via_carota": [92.30, 104.80, 88.60]},
+        {"katz": 3, "via_carota": 3},
+    )
+    assert excluded == ["katz"]
+    assert known == {3: [92.30, 104.80, 88.60]}
