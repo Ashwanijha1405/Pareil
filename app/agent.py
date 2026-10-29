@@ -158,6 +158,8 @@ class Agent:
         by_raw: dict[str, list[Transaction]] = defaultdict(list)
         for t in txns:
             by_raw[t.merchant].append(t)
+        # Logged before the LLM clean (the slowest step) so a live run shows progress straight away.
+        self._log("read", "code", "ok", detail=f"{len(txns)} transactions, {len(by_raw)} distinct merchants, {first} to {last}")
 
         cleaned, clean_trace = merchants.clean(list(by_raw), {r: ts[0].city for r, ts in by_raw.items()}, self.llm)
         for entry in clean_trace:

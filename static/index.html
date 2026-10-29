@@ -38,6 +38,14 @@
   </div>
 </div>
 
+<div class="backdrop" aria-hidden="true">
+  <span class="bd-img bd-left"></span>
+  <span class="bd-img bd-right"></span>
+  <span class="bd-glow bd-g1"></span>
+  <span class="bd-glow bd-g2"></span>
+  <span class="bd-dots"></span>
+</div>
+
 <div class="page">
 
 <!-- NAV -->
@@ -125,65 +133,50 @@
           </div>
         </div>
 
-        <div class="stats">
-          <div class="stat"><div class="stat-num">250M+</div><div class="stat-text">taste entities in Qloo’s graph</div></div>
-          <div class="stat"><div class="stat-num">1 tier</div><div class="stat-text">cheaper, on every swap</div></div>
-          <div class="stat"><div class="stat-num">≥ yours</div><div class="stat-text">rating floor — never a worse place</div></div>
-        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="stat-num">250M+</div><div class="stat-text">taste entities in Qloo’s graph</div></div>
+        <div class="stat"><div class="stat-num">1 tier</div><div class="stat-text">cheaper, on every swap</div></div>
+        <div class="stat"><div class="stat-num">≥ yours</div><div class="stat-text">rating floor: never a worse place</div></div>
       </div>
     </div>
   </section>
 
   <section id="why" class="wrap section">
-    <div class="split">
-      <div class="split-main">
+    <div class="why-head">
+      <div>
         <p class="eyebrow">Why Pareil</p>
-        <h2 class="h2">Spend less.<br>Keep what you love.</h2>
-        <p class="body">Budget apps tell you to spend less. Pareil tells you where to go instead — places that match your taste, not just your budget.</p>
-        <div class="features">
-          <div>
-            <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg>
-            <h3 class="h3">Same vibe</h3>
-            <p class="small-body">Qloo’s taste graph matches places by what people with your taste actually love.</p>
-          </div>
-          <div>
-            <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h11M4 17h6"/><path d="M18 14v6M15 17l3 3 3-3"/></svg>
-            <h3 class="h3">Truly cheaper</h3>
-            <p class="small-body">Every suggestion sits at least one price tier below the place it replaces.</p>
-          </div>
-          <div>
-            <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>
-            <h3 class="h3">Never worse</h3>
-            <p class="small-body">A rating floor means no swap is rated below the place you’re leaving.</p>
-          </div>
-        </div>
+        <h2 class="h2">Spend less.<br><span class="em-brass">Keep what you love.</span></h2>
       </div>
-      <div class="split-side quotes">
-        <div class="quote quote-dim">
-          <div class="label">A typical budgeting app</div>
-          <p class="quote-text">“You spent $540 on dining this month. Try cooking at home.”</p>
-        </div>
-        <div class="quote quote-brass">
-          <div class="label brass">Pareil</div>
-          <p class="quote-text">“Swap Carbone for Via Carota twice a month. Same Italian date-night feel, about $150 back.”</p>
-          <p class="fine-note">Illustrative example</p>
-        </div>
+      <p class="why-lede">Budget apps say <b>spend less</b>.<br>Pareil says <b>where to go instead</b>.</p>
+    </div>
+    <div class="versus">
+      <div class="quote quote-dim">
+        <div class="label">A typical budgeting app</div>
+        <p class="quote-text">“You spent $540 on dining. <s>Try cooking at home.</s>”</p>
+      </div>
+      <span class="vs" aria-hidden="true">vs</span>
+      <div class="quote quote-brass">
+        <div class="label brass">Pareil</div>
+        <p class="quote-text">“Swap Carbone for Via Carota twice a month. <mark>About $150 back.</mark>”</p>
+        <p class="fine-note">Same Italian date-night feel · illustrative example</p>
       </div>
     </div>
   </section>
 
   <section id="how" class="wrap section">
-    <div class="how-row">
+    <div class="how-wrap">
       <div class="how-intro">
         <p class="eyebrow">How it works</p>
-        <h2 class="h2 h2-sm">From statement<br>to swaps, in<br>four steps.</h2>
+        <h2 class="h2 h2-sm">From statement to swaps, in four steps.</h2>
       </div>
-      <div class="steps">
-        <div class="step-card"><span class="mono brass">01</span><h3 class="h3">Upload your spending</h3><p class="small-body">A CSV of date, merchant, amount and city — or open a demo month in one click.</p></div>
-        <div class="step-card"><span class="mono brass">02</span><h3 class="h3">The agent tidies up</h3><p class="small-body">Bank strings like “CARBONE NYC 0234” become real places. Uber and Amazon are set aside.</p></div>
-        <div class="step-card"><span class="mono brass">03</span><h3 class="h3">Qloo finds taste twins</h3><p class="small-body">Your favourite places become signals. Qloo returns places your taste loves, a tier cheaper.</p></div>
-        <div class="step-card"><span class="mono brass">04</span><h3 class="h3">Swaps, explained</h3><p class="small-body">Each swap says why it fits, with an honest monthly saving estimate.</p></div>
-      </div>
+      <ol class="steps">
+        <li class="step-card"><span class="mono brass">01</span><h3 class="h3">Upload</h3><p class="small-body">A CSV of your spending, or a demo month.</p></li>
+        <li class="step-card"><span class="mono brass">02</span><h3 class="h3">Tidy</h3><p class="small-body">“CARBONE NYC 0234” becomes Carbone. Uber is set aside.</p></li>
+        <li class="step-card"><span class="mono brass">03</span><h3 class="h3">Match</h3><p class="small-body">Qloo finds places your taste loves, a tier cheaper.</p></li>
+        <li class="step-card"><span class="mono brass">04</span><h3 class="h3">Save</h3><p class="small-body">Each swap explained, with an honest monthly saving.</p></li>
+      </ol>
     </div>
   </section>
 
@@ -314,6 +307,7 @@
       <span class="trace-sub" id="run-sub"></span>
     </div>
     <ol id="timeline" class="trace-list" aria-live="polite"></ol>
+    <p id="run-pulse" class="run-pulse" hidden><span class="pulse-dot" aria-hidden="true"></span><span id="run-pulse-text"></span><span id="run-pulse-time" class="t-ms"></span></p>
     <p id="run-error" class="alert" role="alert" hidden></p>
   </div>
 </main>
@@ -377,14 +371,26 @@
 
 <footer class="wrap footer">
   <div class="footer-row">
-    <div class="footer-brand"><span class="p-mark p-mark-sm" aria-hidden="true">P</span><span class="brand-name">Pareil</span></div>
-    <p class="fine-note">Built for the Qloo Agentic Hackathon 2026 &nbsp;·&nbsp; Taste data by Qloo &nbsp;·&nbsp; Open source (MIT)</p>
-    <nav aria-label="Footer">
-      <a href="https://github.com/Ashwanijha1405/Pareil" class="icon-btn" aria-label="Source code on GitHub">
+    <div class="footer-by">
+      <span class="label">Built by</span>
+      <span class="footer-name">Ashwani Jha</span>
+      <a class="footer-mail" href="mailto:ashwaniofficial14@gmail.com">ashwaniofficial14@gmail.com</a>
+    </div>
+    <p class="fine-note footer-credit">Built for the Qloo Agentic Hackathon 2026 &nbsp;·&nbsp; Taste data by Qloo &nbsp;·&nbsp; Open source (MIT)</p>
+    <nav aria-label="Footer" class="footer-links">
+      <a href="mailto:ashwaniofficial14@gmail.com" class="icon-btn" aria-label="Email Ashwani Jha">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+      </a>
+      <a href="https://x.com/Ashwanijha1405" class="icon-btn" aria-label="Ashwani Jha on X" rel="noopener" target="_blank">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4.5L20 20h-4.5z"/><path d="M4 20l6.6-7.2M13.4 10.8L20 4"/></svg>
+      </a>
+      <a href="https://github.com/Ashwanijha1405/Pareil" class="icon-btn" aria-label="Source code on GitHub" rel="noopener" target="_blank">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.3 4.3 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.3 4.3 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
       </a>
     </nav>
   </div>
+  <div class="footer-word" tabindex="0" aria-label="Pareil">PAREIL</div>
+  <p class="footer-copy">© 2026 Pareil &nbsp;·&nbsp; Ashwani Jha</p>
 </footer>
 </div>
 </body>

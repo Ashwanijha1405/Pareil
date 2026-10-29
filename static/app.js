@@ -305,6 +305,7 @@ function follow(runId, label) {
   $("run-error").hidden = true;
   $("run-title").textContent = "Agent trace";
   $("run-sub").textContent = label;
+  pulse.start();
 
   const es = new EventSource(`/api/runs/${runId}/events`);
   state.es = es;
@@ -313,12 +314,15 @@ function follow(runId, label) {
     $("run-sub").textContent = meta.replayed_at ? `replay of ${hhmm(meta.replayed_at)} run` : "live · calling Qloo";
   });
   es.addEventListener("step", (e) => {
-    const li = stepItem(JSON.parse(e.data));
+    const ev = JSON.parse(e.data);
+    pulse.set(ev.step);
+    const li = stepItem(ev);
     $("timeline").append(li);
     li.scrollIntoView({ block: "nearest" });
   });
   es.addEventListener("done", async () => {
     es.close();
+    pulse.stop();
     try {
       const res = await fetch(`/api/runs/${runId}/report`);
       if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`);
@@ -335,13 +339,35 @@ function follow(runId, label) {
   });
 }
 function runError(message) {
+  pulse.stop();
   setButtons(false);
   $("run-title").textContent = "Run stopped";
   $("run-error").textContent = message;
   $("run-error").hidden = false;
 }
 
+// What the agent is doing after each step, shown with a ticking timer until the next step lands.
+const NEXT_TEXT = {
+  start: "Reading your file", read: "Cleaning merchant names with the model", clean: "Matching your places on Qloo",
+  resolve: "Matching your places on Qloo", tier: "Asking Qloo for taste twins", twins: "Ranking twins",
+  rank: "Asking Qloo for taste twins", recover: "Trying a recovery action", dedupe: "Writing explanations",
+  explain: "Building your report",
+};
+const pulse = {
+  timer: null,
+  start() {
+    const t0 = performance.now();
+    this.set("start");
+    $("run-pulse").hidden = false;
+    clearInterval(this.timer);
+    this.timer = setInterval(() => { $("run-pulse-time").textContent = `${Math.round((performance.now() - t0) / 1000)}s`; }, 500);
+  },
+  set(step) { $("run-pulse-text").textContent = `${NEXT_TEXT[step] || "Working"}…`; },
+  stop() { clearInterval(this.timer); $("run-pulse").hidden = true; $("run-pulse-time").textContent = ""; },
+};
+
 const STEP_TEXT = {
+  read: "Read your file",
   clean: "Cleaned merchant names", resolve: "Matched on Qloo", tier: "Price tier",
   twins: "Found taste twins", rank: "Ranked · rating floor applied", recover: "Recovery",
   dedupe: "One twin per merchant", explain: "Explanations · names verified",
@@ -559,6 +585,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("file").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) uploadFile(f); });
   document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => {
     if (state.es) state.es.close();
+    pulse.stop();
     setButtons(false);
     show("landing");
   }));
